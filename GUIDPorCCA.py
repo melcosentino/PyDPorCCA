@@ -2643,7 +2643,7 @@ class Ui_MainWindow(object):
         # update the thresholds
         classifier.th1 = HQ
         classifier.th2 = LQ
-        click_converter = click_detector.ClickConverter()
+        click_converter = click_detector.ClickConverter(fs=576000)
         if ModelSel == 'ST300HF' or ModelSel == 'ST500HF':
             click_det_act = False
             name = 'SoundTrap'
@@ -2692,12 +2692,12 @@ class Ui_MainWindow(object):
         # for loop to go into subfolders
         if self.CheckAllFolders.isChecked():
             FilesAndFolders = os.listdir(MainFolder)
-            Folders = [s for s in FilesAndFolders if "." not in s]
+            Folders = [s for s in FilesAndFolders if os.path.isdir(os.path.join(MainFolder, s))]
             for thisFolder in Folders:
                 print('Analysing data in folder', thisFolder)
                 ThisFolderSave = MainFolder + '/' + thisFolder
-                detector.save_folder = ThisFolderSave
                 if not click_det_act:
+                    detector.save_folder = ThisFolderSave
                     detector.detect_click_clips_folder(ThisFolderSave, blocksize=34560000)
                 else:
                     clickST = hydrop.read_HFclicks(ThisFolderSave)
