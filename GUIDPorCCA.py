@@ -2515,6 +2515,7 @@ class Ui_MainWindow(object):
         self.DataTypeDD.addItem("PAMGuard")
         self.DataTypeDD.addItem("ST300HF")
         self.DataTypeDD.addItem("ST500HF")
+        self.DataTypeDD.addItem('ST Click Detector')
         #   self.FileDD.activated[str].connect(self.style_choice)
         self.DataTypeLbl = QtWidgets.QLabel(self.HydPan)
         self.DataTypeLbl.setGeometry(10, 40, 200, 30)
@@ -2636,7 +2637,15 @@ class Ui_MainWindow(object):
         global SelectedFolderSave, Folders
         MainFolder = self.FolderPathDet.text()
         ModelSel = self.DataTypeDD.currentText()
-        if ModelSel == 'ST300HF' or ModelSel == 'ST300HF':
+        classifier = porcc.PorCC(load_type='manual', config_file='default')
+        LQ = float(self.LQThresDet.text())
+        HQ = float(self.HQThresDet.text())
+        # update the thresholds
+        classifier.th1 = HQ
+        classifier.th2 = LQ
+        click_converter = click_detector.ClickConverter()
+        if ModelSel == 'ST300HF' or ModelSel == 'ST500HF':
+            click_det_act = False
             name = 'SoundTrap'
             serial_number = int(self.SerialNoEdit.text())  # 738496579
             if serial_number == 0:
@@ -2644,42 +2653,42 @@ class Ui_MainWindow(object):
                 hydrop = pyhy.soundtrap.SoundTrap(name=name, model=ModelSel, sensitivity=Sens)
             else:
                 hydrop = pyhy.soundtrap.SoundTrap(name=name, model=ModelSel, serial_number=serial_number)
-        # else:
-        #     name = self.DataTypeDD.text()
-        #     hydrop = pyhy.BruelKjaer.  SoundTrap(name=name, model=ModelSel, serial_number=serial_number)
 
-        MaxLenFile = int(self.LengthFileEdit.text())
-        LongFilt = float(self.LongFiltEdit.text())
-        LongFilt2 = float(self.LongFiltEdit2.text())
-        ShortFilt = float(self.ShortFiltEdit.text())
-        DetThres = float(self.DetThreshold.text())
-        PreSam = int(self.PreSampEd.text())
-        PostSam = int(self.PostSampEd.text())
-        MaxLenClick = int(self.MaxLengthEd.text())
-        MinLenClick = int(self.MinLengthEd.text())
-        MinSep = int(self.MinSepEd.text())
-        MinFrq = float(self.MinFreqEd.text()) * 1000
-        MaxFrq = float(self.MaxFreqEd.text()) * 1000
-        # PathDetSave = self.SelectFolderTextSave.text()
-        # MainFolder = 'C:/Mel/CPODvsDPorCCA/TruncatedData'
-        # models_config_path = '..pyporcc/models/log_models.ini'
-        LQ = float(self.LQThresDet.text())
-        HQ = float(self.HQThresDet.text())
-        # Fs = 576000
-        # Signal, Fs = soundfile.read(FileToOpen, start=int(Start), stop=int(End))
-        pfilter = click_detector.Filter(filter_name='butter', filter_type='bandpass', order=4,
-                                        frequencies=[MinFrq, MaxFrq])
-        dfilter = click_detector.Filter(filter_name='butter', filter_type='high', order=4, frequencies=20000)
-        classifier = porcc.PorCC(load_type='manual', config_file='default')
-        # update the thresholds
-        classifier.th1 = HQ
-        classifier.th2 = LQ
-        detector = click_detector.ClickDetector(hydrophone=hydrop, long_filt=LongFilt, long_filt2=LongFilt2,
-                                                short_filt=ShortFilt, threshold=DetThres, min_separation=MinSep,
-                                                max_length=MaxLenClick, min_length=MinLenClick, pre_samples=PreSam,
-                                                post_samples=PostSam, prefilter=pfilter, dfilter=dfilter,
-                                                save_max=MaxLenFile, save_folder=MainFolder, convert=True,
-                                                click_model_path=None, classifier=classifier, save_noise=False)
+            MaxLenFile = int(self.LengthFileEdit.text())
+            LongFilt = float(self.LongFiltEdit.text())
+            LongFilt2 = float(self.LongFiltEdit2.text())
+            ShortFilt = float(self.ShortFiltEdit.text())
+            DetThres = float(self.DetThreshold.text())
+            PreSam = int(self.PreSampEd.text())
+            PostSam = int(self.PostSampEd.text())
+            MaxLenClick = int(self.MaxLengthEd.text())
+            MinLenClick = int(self.MinLengthEd.text())
+            MinSep = int(self.MinSepEd.text())
+            MinFrq = float(self.MinFreqEd.text()) * 1000
+            MaxFrq = float(self.MaxFreqEd.text()) * 1000
+
+            pfilter = click_detector.Filter(filter_name='butter', filter_type='bandpass', order=4,
+                                            frequencies=[MinFrq, MaxFrq])
+            dfilter = click_detector.Filter(filter_name='butter', filter_type='high', order=4, frequencies=20000)
+            detector = click_detector.ClickDetector(hydrophone=hydrop, long_filt=LongFilt, long_filt2=LongFilt2,
+                                                    short_filt=ShortFilt, threshold=DetThres, min_separation=MinSep,
+                                                    max_length=MaxLenClick, min_length=MinLenClick, pre_samples=PreSam,
+                                                    post_samples=PostSam, prefilter=pfilter, dfilter=dfilter,
+                                                    save_max=MaxLenFile, save_folder=MainFolder, convert=True,
+                                                    click_model_path=None, classifier=classifier, save_noise=False)
+        elif ModelSel == 'ST Click Detector':
+            click_det_act = True
+            name = 'SoundTrap'
+            serial_number = int(self.SerialNoEdit.text())  # 738496579
+            if serial_number == 0:
+                Sens = int(self.SensEditDet.text())
+                hydrop = pyhy.soundtrap.SoundTrapHF(name=name, model=ModelSel, sensitivity=Sens)
+            else:
+                hydrop = pyhy.soundtrap.SoundTrapHF(name=name, model=ModelSel, serial_number=serial_number)
+
+        else:
+            click_det_act = False
+
         # for loop to go into subfolders
         if self.CheckAllFolders.isChecked():
             FilesAndFolders = os.listdir(MainFolder)
@@ -2688,9 +2697,46 @@ class Ui_MainWindow(object):
                 print('Analysing data in folder', thisFolder)
                 ThisFolderSave = MainFolder + '/' + thisFolder
                 detector.save_folder = ThisFolderSave
-                detector.detect_click_clips_folder(ThisFolderSave, blocksize=34560000)
+                if not click_det_act:
+                    detector.detect_click_clips_folder(ThisFolderSave, blocksize=34560000)
+                else:
+                    clickST = hydrop.read_HFclicks(ThisFolderSave)
+                    clicks = click_converter.clicks_df(clickST)
+                    clicksHF = classifier.classify_matrix(clicks)
+                    self.save_clips(ThisFolderSave, clicksHF)
         else:
             detector.detect_click_clips_folder(MainFolder, blocksize=34560000)  # Fs * 60
+
+    def save_clips(self, save_folder, clips, classifier):
+        """
+        Save the clips in a file
+        """
+
+        # clips_filename_parquet = self.save_folder.joinpath('%s_clips.parquet.gzip' %
+        # self.clips.datetime.iloc[0].strftime('%d%m%y_%H%M%S'))
+        clips_filename_h5 = save_folder.joinpath('%s_clips.h5' %
+                                                      clips.datetime.iloc[0].strftime('%y%m%d_%H%M%S'))
+        waves_filename_h5 = save_folder.joinpath('%s_waves.h5' %
+                                                      clips.datetime.iloc[0].strftime('%y%m%d_%H%M%S'))
+        clips_filename_csv = save_folder.joinpath('%s_clips.csv' %
+                                                       clips.datetime.iloc[0].strftime('%y%m%d_%H%M%S'))
+
+        clips.filename = clips.filename.astype(str)
+        clips.datetime = clips.datetime.astype(str)
+        clips.start_sample = clips.start_sample.astype(int)
+        # Save everything in the file
+        csv_df = clips.drop(index=clips.loc[clips[classifier.class_column] == 3].index)
+
+        csv_df = csv_df.drop(columns=['wave'])
+        csv_df.to_csv(clips_filename_csv)
+
+        vlen_type = h5py.special_dtype(vlen=np.float32)
+        f = h5py.File(waves_filename_h5, 'w')
+        f.create_dataset('/waves', data=clips.wave.values, dtype=vlen_type)
+        f.close()
+        clips.drop(columns=['wave']).to_hdf(clips_filename_h5, key='clips', format='table')
+        clips.drop(index=clips.index, inplace=True)
+
 
     def CancelDetector(self):
         self.MenuDetSetFig.close()
