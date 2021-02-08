@@ -1,0 +1,6 @@
+# created by virtualenv automatically
+*.exe
+.idea/
+pyvenv.cfg
+Lib/
+Scripts - Copy/
