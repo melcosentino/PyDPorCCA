@@ -30,6 +30,7 @@ from PyQt5 import QtWidgets
 from tkinter import filedialog
 from datetime import time
 from datetime import datetime
+import pathlib
 
 # from PyQt5.QtWidgets import QTableWidgetItem
 
@@ -2694,16 +2695,18 @@ class Ui_MainWindow(object):
             FilesAndFolders = os.listdir(MainFolder)
             Folders = [s for s in FilesAndFolders if os.path.isdir(os.path.join(MainFolder, s))]
             for thisFolder in Folders:
-                print('Analysing data in folder', thisFolder)
                 ThisFolderSave = MainFolder + '/' + thisFolder
                 if not click_det_act:
+                    print('Detecting clicks in', ThisFolderSave)
                     detector.save_folder = ThisFolderSave
                     detector.detect_click_clips_folder(ThisFolderSave, blocksize=34560000)
                 else:
+                    print('Reading ST HF clicks in', ThisFolderSave)
                     clickST = hydrop.read_HFclicks(ThisFolderSave)
+                    print('Calculating parameters and classifying clicks')
                     clicks = click_converter.clicks_df(clickST)
                     clicksHF = classifier.classify_matrix(clicks)
-                    self.save_clips(ThisFolderSave, clicksHF)
+                    self.save_clips(ThisFolderSave, clicksHF, classifier)
         else:
             detector.detect_click_clips_folder(MainFolder, blocksize=34560000)  # Fs * 60
 
@@ -2711,7 +2714,8 @@ class Ui_MainWindow(object):
         """
         Save the clips in a file
         """
-
+        if not isinstance(save_folder, pathlib.Path):
+            save_folder = pathlib.Path(save_folder)
         # clips_filename_parquet = self.save_folder.joinpath('%s_clips.parquet.gzip' %
         # self.clips.datetime.iloc[0].strftime('%d%m%y_%H%M%S'))
         clips_filename_h5 = save_folder.joinpath('%s_clips.h5' %
