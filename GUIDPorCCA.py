@@ -2644,9 +2644,7 @@ class Ui_MainWindow(object):
         # update the thresholds
         classifier.th1 = HQ
         classifier.th2 = LQ
-        click_converter = click_detector.ClickConverter(fs=576000)
         if ModelSel == 'ST300HF' or ModelSel == 'ST500HF':
-            click_det_act = False
             name = 'SoundTrap'
             serial_number = int(self.SerialNoEdit.text())  # 738496579
             if serial_number == 0:
@@ -2677,8 +2675,8 @@ class Ui_MainWindow(object):
                                                     post_samples=PostSam, prefilter=pfilter, dfilter=dfilter,
                                                     save_max=MaxLenFile, save_folder=MainFolder, convert=True,
                                                     click_model_path=None, classifier=classifier, save_noise=False)
+            blocksize = 3456000
         elif ModelSel == 'ST Click Detector':
-            click_det_act = True
             name = 'SoundTrap'
             serial_number = int(self.SerialNoEdit.text())  # 738496579
             if serial_number == 0:
@@ -2686,9 +2684,19 @@ class Ui_MainWindow(object):
                 hydrop = pyhy.soundtrap.SoundTrapHF(name=name, model=ModelSel, sensitivity=Sens)
             else:
                 hydrop = pyhy.soundtrap.SoundTrapHF(name=name, model=ModelSel, serial_number=serial_number)
+            MinFrq = float(self.MinFreqEd.text()) * 1000
+            MaxFrq = float(self.MaxFreqEd.text()) * 1000
+
+            pfilter = click_detector.Filter(filter_name='butter', filter_type='bandpass', order=4,
+                                            frequencies=[MinFrq, MaxFrq])
+            detector = click_detector.ClickDetectorSoundTrapHF(hydrophone=hydrop, prefilter=pfilter,
+                                                                save_folder=MainFolder, convert=True,
+                                                                click_model_path=None, classifier=classifier, save_noise=False)
+            blocksize = None
 
         else:
-            click_det_act = False
+            blocksize = 3456000
+            detector = None
 
         # for loop to go into subfolders
         if self.CheckAllFolders.isChecked():
@@ -2696,50 +2704,11 @@ class Ui_MainWindow(object):
             Folders = [s for s in FilesAndFolders if os.path.isdir(os.path.join(MainFolder, s))]
             for thisFolder in Folders:
                 ThisFolderSave = MainFolder + '/' + thisFolder
-                if not click_det_act:
-                    print('Detecting clicks in', ThisFolderSave)
-                    detector.save_folder = ThisFolderSave
-                    detector.detect_click_clips_folder(ThisFolderSave, blocksize=34560000)
-                else:
-                    print('Reading ST HF clicks in', ThisFolderSave)
-                    clickST = hydrop.read_HFclicks(ThisFolderSave)
-                    print('Calculating parameters and classifying clicks')
-                    clicks = click_converter.clicks_df(clickST)
-                    clicksHF = classifier.classify_matrix(clicks)
-                    self.save_clips(ThisFolderSave, clicksHF, classifier)
+                print('Detecting clicks in', ThisFolderSave)
+                detector.save_folder = ThisFolderSave
+                detector.detect_click_clips_folder(ThisFolderSave, blocksize=blocksize)
         else:
-            detector.detect_click_clips_folder(MainFolder, blocksize=34560000)  # Fs * 60
-
-    def save_clips(self, save_folder, clips, classifier):
-        """
-        Save the clips in a file
-        """
-        if not isinstance(save_folder, pathlib.Path):
-            save_folder = pathlib.Path(save_folder)
-        # clips_filename_parquet = self.save_folder.joinpath('%s_clips.parquet.gzip' %
-        # self.clips.datetime.iloc[0].strftime('%d%m%y_%H%M%S'))
-        clips_filename_h5 = save_folder.joinpath('%s_clips.h5' %
-                                                      clips.datetime.iloc[0].strftime('%y%m%d_%H%M%S'))
-        waves_filename_h5 = save_folder.joinpath('%s_waves.h5' %
-                                                      clips.datetime.iloc[0].strftime('%y%m%d_%H%M%S'))
-        clips_filename_csv = save_folder.joinpath('%s_clips.csv' %
-                                                       clips.datetime.iloc[0].strftime('%y%m%d_%H%M%S'))
-
-        clips.filename = clips.filename.astype(str)
-        clips.datetime = clips.datetime.astype(str)
-        clips.start_sample = clips.start_sample.astype(int)
-        # Save everything in the file
-        csv_df = clips.drop(index=clips.loc[clips[classifier.class_column] == 3].index)
-
-        csv_df = csv_df.drop(columns=['wave'])
-        csv_df.to_csv(clips_filename_csv)
-
-        vlen_type = h5py.special_dtype(vlen=np.float32)
-        f = h5py.File(waves_filename_h5, 'w')
-        f.create_dataset('/waves', data=clips.wave.values, dtype=vlen_type)
-        f.close()
-        clips.drop(columns=['wave']).to_hdf(clips_filename_h5, key='clips', format='table')
-        clips.drop(index=clips.index, inplace=True)
+            detector.detect_click_clips_folder(MainFolder, blocksize=blocksize)  # Fs * 60
 
 
     def CancelDetector(self):
