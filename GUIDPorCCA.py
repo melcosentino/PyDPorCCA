@@ -77,7 +77,7 @@ def ExtractPatterns(myCP, myFs, lat, long):
     ColNames = ['CTNum', 'Date', 'DayNight', 'Length', 'Species', 'Behav', 'Calf', 'Notes']
     myCTInfo = pd.DataFrame(data=None, columns=ColNames)
     # add rown numbers to see if what we removed is another click train
-    myCP = myCP.drop(myCP[myCP.duration_us > 450].index)
+    myCP = myCP.drop(myCP[myCP.duration > 450].index)
     myCP.reset_index(inplace=True, drop=True)
     # Good click trains that only have echoes
     myCP = NewICI(myCP, myFs)
@@ -98,13 +98,15 @@ def ExtractPatterns(myCP, myFs, lat, long):
     myCP = myCP.drop(myCP[(myCP.CPS.diff() > 140.0)].index)
     myCP.reset_index(inplace=True, drop=True)
     myCP = NewICI(myCP, myFs)
+    print(myCP)
     ColNames = list(myCP.columns)
     CTrains = pd.DataFrame(data=None, columns=ColNames)
     # # Find click trains
     TimeGaps = myCP[(myCP.ICI > 700.0) | (myCP.ICI < 0.0)].index.to_series()
     TimeGaps.reset_index(inplace=True, drop=True)
     DiffTimeGaps = TimeGaps.diff()
-    DiffTimeGaps.at[0] = TimeGaps[0] - 0
+    print(DiffTimeGaps)
+    # DiffTimeGaps.at[0] = TimeGaps[0] - 0
     # Find very long CT and reduce them to CT with fewer than 1000 clicks
     LongCTs = DiffTimeGaps[DiffTimeGaps > 900].index
 
