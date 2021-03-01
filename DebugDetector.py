@@ -1,12 +1,11 @@
-import numpy as np
-import soundfile
 import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
 import pyhydrophone as pyhy
+import soundfile
 from pyporcc import click_detector
 from pyporcc import porcc
 from scipy import signal
-import pandas as pd
-import os
 
 model = 'ST300HF'
 name = 'SoundTrap'
@@ -111,6 +110,5 @@ for i in np.arange(0, psd.size - max_freq_i):
         i_right = max_freq_i + i
 
 bw = (freq[i_right] - freq[i_left]) / 1000.0
-
 
 Clicks = pd.read_pickle('C:/Mel/CPODvsDPorCCA/TruncatedData/Detected_Clips_240815_170131.pkl')

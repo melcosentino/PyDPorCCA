@@ -1,7 +1,7 @@
-import pandas as pd
 import math
+
 import numpy as np
-from pyporcc import click_detector
+import pandas as pd
 from pyporcc import porcc
 
 
@@ -23,20 +23,22 @@ def CTInfoMaker(CTInfo, CTTemp):  # srise, sset
     # # end
     # Type
     Type = Species(CTTemp)
-    CTInfo = CTInfo.append({'CTNum':CTNum, 'Date':CTTemp.datetime[0], 'Length':len(CTTemp), 'Species': Type,
-                            'Behaviour':'-', 'Calf':'-', 'Notes':' '}, ignore_index=True)
+    CTInfo = CTInfo.append({'CTNum': CTNum, 'Date': CTTemp.datetime[0], 'Length': len(CTTemp), 'Species': Type,
+                            'Behaviour': '-', 'Calf': '-', 'Notes': ' '}, ignore_index=True)
     return CTInfo
+
+
 # end
 
 
 def Species(CTTemp):
     CFDiff = CTTemp.CF.diff()
-    PercChangeCF = (CFDiff/CTTemp.CF[0:-1-1])*100
+    PercChangeCF = (CFDiff / CTTemp.CF[0:-1 - 1]) * 100
     MedianPercChangeCF = abs(PercChangeCF).median()
     SDCF = CTTemp.CF.std()
     CPSDiff = CTTemp.CPS.diff()
     CPSDiff = CPSDiff.drop([0])
-    PercChange = (CPSDiff/CTTemp.CPS[1:-1-1])*100
+    PercChange = (CPSDiff / CTTemp.CPS[1:-1 - 1]) * 100
     MedianPercChangeCPS = abs(PercChange[1:-1]).median()
     if len(CTTemp) < 10:
         Type = 'Non-NBHF'
@@ -50,6 +52,8 @@ def Species(CTTemp):
         Type = 'LQ-NBHF'
     # end
     return Type
+
+
 # end
 
 
@@ -113,15 +117,15 @@ def NewICI(myTable, fs):
     start_sample = myTable["start_sample"]
     myTable['ICI'] = start_sample.diff() / (fs / 1000)
     myTable["CPS"] = 1000 / myTable.ICI
-    myTable.at[0,'CPS']= 0.0
-    myTable.at[0,'ICI'] = 0.0
+    myTable.at[0, 'CPS'] = 0.0
+    myTable.at[0, 'ICI'] = 0.0
     return myTable
 
 
 def ExtractPatterns(CP, Fs):
     CTNum = 0
     Keep = 0
-    ColNames =  ['CTNum', 'Date', 'Day_Night', 'Length', 'Species', 'Behaviour', 'Calf', 'Notes']
+    ColNames = ['CTNum', 'Date', 'Day_Night', 'Length', 'Species', 'Behaviour', 'Calf', 'Notes']
     CTInfo = pd.DataFrame(data=None, columns=ColNames)
     # add rown numbers to see if what we removed is another click train
     CP['RowN'] = range(0, len(CP))
@@ -134,7 +138,7 @@ def ExtractPatterns(CP, Fs):
         S1 = len(CP)
         CP["AmpDiff"] = CP.amplitude.diff()
         CP = CP.drop(CP[(CP.amplitude.shift(1) > CP.amplitude) & (CP.amplitude.shift(-1) > CP.amplitude) & (
-                    CP.AmpDiff < -5)].index)
+                CP.AmpDiff < -5)].index)
         CP.reset_index(inplace=True, drop=True)
         print(len(CP))
         CP = NewICI(CP, Fs)
@@ -149,19 +153,19 @@ def ExtractPatterns(CP, Fs):
     TimeGaps = CP[(CP.ICI > 700.0) | (CP.ICI < 0.0)].index.to_series()
     TimeGaps.reset_index(inplace=True, drop=True)
     DiffTimeGaps = TimeGaps.diff()
-    DiffTimeGaps.at[0] = TimeGaps[0]-0
+    DiffTimeGaps.at[0] = TimeGaps[0] - 0
     # Find very long CT and reduce them to CT with fewer than 1000 clicks
     LongCTs = DiffTimeGaps[DiffTimeGaps > 1000].index
 
     if len(LongCTs) > 0:
         for m in range(0, len(LongCTs)):
             Length = DiffTimeGaps(LongCTs(m))
-            CTsInside = math.floor(Length / 1000) + 1 # integer less than
+            CTsInside = math.floor(Length / 1000) + 1  # integer less than
             # Add Positions to TimeGaps
             PosInCP = TimeGaps(LongCTs(m))
             NextPos = TimeGaps(LongCTs(m) + 1)
             NewPos = 0  # [PosInCP:(Length/(CTsInside):NextPos
-            TimeGaps[-1+1:-1+CTsInside-1] = round(NewPos[2:-1-1])
+            TimeGaps[-1 + 1:-1 + CTsInside - 1] = round(NewPos[2:-1 - 1])
         # end
         TimeGaps = TimeGaps.sort()
         DiffTimeGaps = TimeGaps.diff()
@@ -178,7 +182,7 @@ def ExtractPatterns(CP, Fs):
             Start = 0
             End = TimeGaps[j]
         else:
-            Start = TimeGaps[j-1]
+            Start = TimeGaps[j - 1]
             End = TimeGaps[j]
         CTTemp = CP[Start:End]
         CTTemp.reset_index(inplace=True, drop=True)
@@ -209,20 +213,20 @@ def ExtractPatterns(CP, Fs):
         if MaxDiffSorted <= 40:
             NewCT = CTTemp
         else:
-            CTTemp = CTTemp.drop(CTTemp[CTTemp.CPS >= int(MaxDiffSorted)-30].index)
+            CTTemp = CTTemp.drop(CTTemp[CTTemp.CPS >= int(MaxDiffSorted) - 30].index)
             CTTemp = NewICI(CTTemp, Fs)
             SortedCPS = CTTemp.CPS.values.copy()
             SortedCPS.sort()
             DiffSorted = pd.DataFrame(SortedCPS).diff()
             DiffSorted = DiffSorted.drop([0])
             MaxDiffSorted = DiffSorted.max().values
-        # ExploreCTTemp(CTTemp)
+            # ExploreCTTemp(CTTemp)
             if MaxDiffSorted <= 50:
                 NewCT = CTTemp.copy()
             elif len(CTTemp) > 20:
                 # Finding the stable areas
                 CPSDiff = CTTemp.CPS.diff()
-                PercChangeS = (CPSDiff/CTTemp.CPS[1:-1-1])*100
+                PercChangeS = (CPSDiff / CTTemp.CPS[1:-1 - 1]) * 100
                 PercChangeS = abs(PercChangeS[2:-1])
                 window_size = 3
                 i = 0
@@ -244,9 +248,9 @@ def ExtractPatterns(CP, Fs):
                 if len(StartRow) < 2:
                     NewCT = CTTemp
                     NewCT = NewICI(NewCT, Fs)
-                else: # go into the CT
-                    RowN = StartRow[0] # Low variability in CPS(for the next 4)
-                    RowsToKeep = pd.DataFrame(data=None, columns=None)  #  # ok<FNDSB>
+                else:  # go into the CT
+                    RowN = StartRow[0]  # Low variability in CPS(for the next 4)
+                    RowsToKeep = pd.DataFrame(data=None, columns=None)  # # ok<FNDSB>
                     RowsToKeep[0] = Here
                     FirstRowN = RowN
 
@@ -255,16 +259,16 @@ def ExtractPatterns(CP, Fs):
                         ClickCPS = CTTemp.CPS.iloc[RowN]
                         ClickAmp = CTTemp.amplitude.iloc[RowN]
                         Clickstart_sample = CTTemp.start_sample.iloc[RowN]
-                        ICIs = abs(Clickstart_sample - CTTemp.start_sample[RowN-5:RowN-1])/(Fs/1000)
-                        CPSs = 1000/ICIs
-                        Amps = CTTemp.amplitude[RowN-5:RowN-1]
+                        ICIs = abs(Clickstart_sample - CTTemp.start_sample[RowN - 5:RowN - 1]) / (Fs / 1000)
+                        CPSs = 1000 / ICIs
+                        Amps = CTTemp.amplitude[RowN - 5:RowN - 1]
                         Amps = abs(ClickAmp - Amps)
                         DiffCPSs = abs(ClickCPS - CPSs)
                         DiffCPSs = pd.DataFrame(DiffCPSs)
                         MinVal = DiffCPSs.start_sample.min()
                         ixCPS = DiffCPSs[DiffCPSs.start_sample == MinVal].index
                         if Amps[ixCPS[0]] < 5:
-                            DiffCPSs[ixCPS[0]] = 1000 # high arbitrary numnber
+                            DiffCPSs[ixCPS[0]] = 1000  # high arbitrary numnber
                             MinVal = DiffCPSs.start_sample.min()
                             ixCPS = DiffCPSs[DiffCPSs.start_sample == MinVal].index
                             RowN = RowN - ixCPS[0]
@@ -281,9 +285,9 @@ def ExtractPatterns(CP, Fs):
                     ClickCPS = CTTemp.CPS.iloc[RowN]
                     ClickAmp = CTTemp.amplitude.iloc[RowN]
                     Clickstart_sample = CTTemp.start_sample.iloc[RowN]
-                    ICIs = abs(CTTemp.start_sample[RowN+1:RowN+9] - Clickstart_sample) / (Fs / 1000)
-                    CPSs = 1000/ICIs
-                    Amps = CTTemp.amplitude[RowN+1:RowN+9]
+                    ICIs = abs(CTTemp.start_sample[RowN + 1:RowN + 9] - Clickstart_sample) / (Fs / 1000)
+                    CPSs = 1000 / ICIs
+                    Amps = CTTemp.amplitude[RowN + 1:RowN + 9]
                     Amps = abs(Amps - ClickAmp)
                     DiffCPSs = abs(ClickCPS - CPSs)
                     DiffCPSs = pd.DataFrame(DiffCPSs)
@@ -350,4 +354,3 @@ CTrains.to_csv('C:/Mel/CPODvsDPorCCA/CorrecteddB/CTrains.csv')
 CP.to_csv('C:/Mel/CPODvsDPorCCA/CorrecteddB/CP.csv')
 
 # end
-

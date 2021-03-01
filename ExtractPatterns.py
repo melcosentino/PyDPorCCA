@@ -1,8 +1,10 @@
-import pandas as pd
 import math
-import numpy as np
 import os
+
 import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+
 
 def forceRange(v, max):
     # force v to be >= 0 and < max
@@ -21,8 +23,8 @@ def getSunsetTime(day, month, year, longitude, latitude):
     return calcSunTime(day, month, year, longitude, latitude, False)
 
 
-def calcSunTime(day, month, year, longitude, latitude, isRiseTime, zenith = 90.8):
-    TO_RAD = math.pi/180
+def calcSunTime(day, month, year, longitude, latitude, isRiseTime, zenith=90.8):
+    TO_RAD = math.pi / 180
 
     # 1. first calculate the day of the year
     N1 = math.floor(275 * month / 9)
@@ -42,28 +44,28 @@ def calcSunTime(day, month, year, longitude, latitude, isRiseTime, zenith = 90.8
     M = (0.9856 * t) - 3.289
 
     # 4. calculate the Sun's true longitude
-    L = M + (1.916 * math.sin(TO_RAD*M)) + (0.020 * math.sin(TO_RAD * 2 * M)) + 282.634
+    L = M + (1.916 * math.sin(TO_RAD * M)) + (0.020 * math.sin(TO_RAD * 2 * M)) + 282.634
     L = forceRange(L, 360)  # NOTE: L adjusted into the range [0,360)
 
     # 5a. calculate the Sun's right ascension
 
-    RA = (1/TO_RAD) * math.atan(0.91764 * math.tan(TO_RAD*L))
+    RA = (1 / TO_RAD) * math.atan(0.91764 * math.tan(TO_RAD * L))
     RA = forceRange(RA, 360)  # NOTE: RA adjusted into the range [0,360)
 
     # 5b. right ascension value needs to be in the same quadrant as L
-    Lquadrant = math.floor(L/90) * 90
-    RAquadrant = math.floor(RA/90) * 90
+    Lquadrant = math.floor(L / 90) * 90
+    RAquadrant = math.floor(RA / 90) * 90
     RA = RA + (Lquadrant - RAquadrant)
 
     # 5c. right ascension value needs to be converted into hours
     RA = RA / 15
 
     # 6. calculate the Sun's declination
-    sinDec = 0.39782 * math.sin(TO_RAD*L)
+    sinDec = 0.39782 * math.sin(TO_RAD * L)
     cosDec = math.cos(math.asin(sinDec))
 
     # 7a. calculate the Sun's local hour angle
-    cosH = (math.cos(TO_RAD*zenith) - (sinDec * math.sin(TO_RAD*latitude))) / (cosDec * math.cos(TO_RAD*latitude))
+    cosH = (math.cos(TO_RAD * zenith) - (sinDec * math.sin(TO_RAD * latitude))) / (cosDec * math.cos(TO_RAD * latitude))
 
     if cosH > 1:
         return {'status': False, 'msg': 'the sun never rises on this location (on the specified date)'}
@@ -74,9 +76,9 @@ def calcSunTime(day, month, year, longitude, latitude, isRiseTime, zenith = 90.8
     # 7b. finish calculating H and convert into hours
 
     if isRiseTime:
-        H = 360 - (1/TO_RAD) * math.acos(cosH)
+        H = 360 - (1 / TO_RAD) * math.acos(cosH)
     else:  # setting
-        H = (1/TO_RAD) * math.acos(cosH)
+        H = (1 / TO_RAD) * math.acos(cosH)
 
     H = H / 15
 
@@ -89,7 +91,7 @@ def calcSunTime(day, month, year, longitude, latitude, isRiseTime, zenith = 90.8
 
     # 10. Return
     hr = forceRange(int(UT), 24)
-    Min = round((UT - int(UT))*60, 0)
+    Min = round((UT - int(UT)) * 60, 0)
     return hr, Min
 
 
@@ -127,17 +129,19 @@ def CTInfoMaker(CTInfo, CTTemp):  # srise, sset
     CTInfo.to_csv('C:/Mel/DPorCCA_FROM_SCRATCH/PGDF_SoundTrapNewTest/20150812/CTInfo.csv', index=False)
 
     return CTInfo
+
+
 # end
 
 
 def Species(CTTemp):
     CFDiff = CTTemp.CF.diff()
-    PercChangeCF = (CFDiff/CTTemp.CF[0:-1-1])*100
+    PercChangeCF = (CFDiff / CTTemp.CF[0:-1 - 1]) * 100
     MedianPercChangeCF = abs(PercChangeCF).median()
     SDCF = CTTemp.CF.std()
     CPSDiff = CTTemp.CPS.diff()
     CPSDiff = CPSDiff.drop([0])
-    PercChange = (CPSDiff/CTTemp.CPS[1:-1-1])*100
+    PercChange = (CPSDiff / CTTemp.CPS[1:-1 - 1]) * 100
     MedianPercChangeCPS = abs(PercChange[1:-1]).median()
     if len(CTTemp) < 10:
         Type = 'Non-NBHF'
@@ -151,12 +155,14 @@ def Species(CTTemp):
         Type = 'LQ-NBHF'
     # end
     return Type
+
+
 # end
 
 
 def Behaviour(CTTemp):
     CFDiff = CTTemp.CF.diff()
-    PercChangeCF = (CFDiff/CTTemp.CF[0:-1-1])*100
+    PercChangeCF = (CFDiff / CTTemp.CF[0:-1 - 1]) * 100
     MeanPF = CTTemp.CF.mean()
     MeanPercChangeCF = abs(PercChangeCF).mean()
     CPS = CTTemp.CPS
@@ -164,16 +170,16 @@ def Behaviour(CTTemp):
     L = len(CPS)
     SortedCPS = CPS.values.copy()
     SortedCPS.sort()
-    CPS90Perc1 = SortedCPS[0:math.floor(0.90*L)]
-    CPS20 = CPS[0:math.floor(L*0.2)].mean()
-    CPS50 = CPS[math.floor(0.2*L):math.floor(0.8*L)].mean()
-    CPS90 = CPS[math.floor(0.8*L):-1].mean()
+    CPS90Perc1 = SortedCPS[0:math.floor(0.90 * L)]
+    CPS20 = CPS[0:math.floor(L * 0.2)].mean()
+    CPS50 = CPS[math.floor(0.2 * L):math.floor(0.8 * L)].mean()
+    CPS90 = CPS[math.floor(0.8 * L):-1].mean()
     if MeanPF > 140000 and 8.5 > MedianCPS > 7.1 and MeanPercChangeCF < 0.5:
         Behav = 'Sonar'
     elif all(CPS90Perc1 < 100):
         Behav = 'Orientation'
     else:
-        CPS90Perc2 = SortedCPS[math.floor(0.10*L):-1]
+        CPS90Perc2 = SortedCPS[math.floor(0.10 * L):-1]
         if all(CPS90Perc2 > 100):
             Behav = 'Socialising'
         else:
@@ -182,9 +188,9 @@ def Behaviour(CTTemp):
             BP = DiffBP[DiffBP == 1].index
             if len(BP) > 0:
                 Pos = BreakingPoint[BP[0]]
-                if len(BP) > 0 and Pos > 5 and len(CPS) > Pos+5:
-                    Before = CPS[Pos-5:Pos].mean()
-                    After = CPS[Pos:Pos+5].mean()
+                if len(BP) > 0 and Pos > 5 and len(CPS) > Pos + 5:
+                    Before = CPS[Pos - 5:Pos].mean()
+                    After = CPS[Pos:Pos + 5].mean()
                 else:
                     Before = 0
                     After = 0
@@ -211,7 +217,7 @@ def Behaviour(CTTemp):
             # end
         # end
     # end
-# end
+    # end
     return Behav
 
 
@@ -227,7 +233,7 @@ def NewICI(myTable, fs):
 def ExtractPatterns(myCP, myFs):
     CTNum = 0
     Keep = 0
-    ColNames =  ['CTNum', 'Date', 'DayNight', 'Length', 'Species', 'Behaviour', 'Calf', 'Notes']
+    ColNames = ['CTNum', 'Date', 'DayNight', 'Length', 'Species', 'Behaviour', 'Calf', 'Notes']
     CTInfo = pd.DataFrame(data=None, columns=ColNames)
     # add rown numbers to see if what we removed is another click train
     myCP.reset_index(inplace=True, drop=True)
@@ -239,7 +245,8 @@ def ExtractPatterns(myCP, myFs):
     while S1 != S2:
         S1 = len(myCP)
         myCP["AmpDiff"] = myCP.amplitude.diff()
-        myCP = myCP.drop(myCP[(myCP.amplitude.shift(1) > myCP.amplitude) & (myCP.amplitude.shift(-1) > myCP.amplitude) & (
+        myCP = myCP.drop(
+            myCP[(myCP.amplitude.shift(1) > myCP.amplitude) & (myCP.amplitude.shift(-1) > myCP.amplitude) & (
                     myCP.AmpDiff < -5)].index)
         myCP.reset_index(inplace=True, drop=True)
         # print(len(myCP))
@@ -255,7 +262,7 @@ def ExtractPatterns(myCP, myFs):
     TimeGaps = myCP[(myCP.ICI > 700.0) | (myCP.ICI < 0.0)].index.to_series()
     TimeGaps.reset_index(inplace=True, drop=True)
     DiffTimeGaps = TimeGaps.diff()
-    DiffTimeGaps.at[0] = TimeGaps[0]-0
+    DiffTimeGaps.at[0] = TimeGaps[0] - 0
     # Find very long CT and reduce them to CT with fewer than 1000 clicks
     LongCTs = DiffTimeGaps[DiffTimeGaps > 900].index
 
@@ -280,12 +287,12 @@ def ExtractPatterns(myCP, myFs):
     # end
 
     for j in range(0, len(CTs)):  # j runs through all the CT c
-        print(j, 'of',  len(CTs))
+        print(j, 'of', len(CTs))
         if j == 0:
             Start = 0
             End = TimeGaps[CTs[j]]
         else:
-            Start = TimeGaps[CTs[j]-1]
+            Start = TimeGaps[CTs[j] - 1]
             End = TimeGaps[CTs[j]]
         CTTemp = myCP[Start:End]
         CTTemp.reset_index(inplace=True, drop=True)
@@ -316,7 +323,7 @@ def ExtractPatterns(myCP, myFs):
         if MaxDiffSorted <= 40:
             NewCT = CTTemp.copy()
         else:
-            CTTemp = CTTemp.drop(CTTemp[CTTemp.CPS >= int(MaxDiffSorted)-30].index)
+            CTTemp = CTTemp.drop(CTTemp[CTTemp.CPS >= int(MaxDiffSorted) - 30].index)
             CTTemp = NewICI(CTTemp, myFs)
             CTTemp.reset_index(inplace=True, drop=True)
             SortedCPS = CTTemp.CPS.values.copy()
@@ -324,13 +331,13 @@ def ExtractPatterns(myCP, myFs):
             DiffSorted = pd.DataFrame(SortedCPS).diff()
             DiffSorted = DiffSorted.drop([0])
             MaxDiffSorted = DiffSorted.max().values
-        # ExploreCTTemp(CTTemp)
+            # ExploreCTTemp(CTTemp)
             if MaxDiffSorted <= 50:
                 NewCT = CTTemp.copy()
             elif len(CTTemp) > 20:
                 # Finding the stable areas
                 CPSDiff = CTTemp.CPS.diff()
-                PercChangeS = (CPSDiff/CTTemp.CPS[1:-1-1])*100
+                PercChangeS = (CPSDiff / CTTemp.CPS[1:-1 - 1]) * 100
                 PercChangeS = abs(PercChangeS[2:-1])
                 window_size = 3
                 i = 0
@@ -353,8 +360,8 @@ def ExtractPatterns(myCP, myFs):
                     NewCT = CTTemp.copy()
                     NewCT = NewICI(NewCT, myFs)
                 else:  # go into the CT
-                    RowN = StartRow[0] # Low variability in CPS(for the next 4)
-                    RowsToKeep = np.array(Here) #  # ok<FNDSB>
+                    RowN = StartRow[0]  # Low variability in CPS(for the next 4)
+                    RowsToKeep = np.array(Here)  # # ok<FNDSB>
                     FirstRowN = RowN
 
                     # Look backwards
@@ -362,16 +369,16 @@ def ExtractPatterns(myCP, myFs):
                         ClickCPS = CTTemp.CPS.iloc[RowN]
                         ClickAmp = CTTemp.amplitude.iloc[RowN]
                         Clickstart_sample = CTTemp.start_sample.iloc[RowN]
-                        ICIs = abs(Clickstart_sample - CTTemp.start_sample[RowN-5:RowN-1])/(Fs/1000)
-                        CPSs = 1000/ICIs
-                        Amps = CTTemp.amplitude[RowN-5:RowN-1]
+                        ICIs = abs(Clickstart_sample - CTTemp.start_sample[RowN - 5:RowN - 1]) / (Fs / 1000)
+                        CPSs = 1000 / ICIs
+                        Amps = CTTemp.amplitude[RowN - 5:RowN - 1]
                         Amps = abs(ClickAmp - Amps)
                         DiffCPSs = abs(ClickCPS - CPSs)
                         DiffCPSs = pd.DataFrame(DiffCPSs)
                         MinVal = DiffCPSs.start_sample.min()
                         ixCPS = DiffCPSs[DiffCPSs.start_sample == MinVal].index
                         if Amps[ixCPS[0]] < 5:
-                            DiffCPSs[ixCPS[0]] = 1000 # high arbitrary numnber
+                            DiffCPSs[ixCPS[0]] = 1000  # high arbitrary numnber
                             MinVal = DiffCPSs.start_sample.min()
                             ixCPS = DiffCPSs[DiffCPSs.start_sample == MinVal].index
                             RowN = RowN - ixCPS[0]
@@ -387,9 +394,9 @@ def ExtractPatterns(myCP, myFs):
                         ClickCPS = CTTemp.CPS.iloc[RowN]
                         ClickAmp = CTTemp.amplitude.iloc[RowN]
                         Clickstart_sample = CTTemp.start_sample.iloc[RowN]
-                        ICIs = abs(CTTemp.start_sample[RowN+1:RowN+9] - Clickstart_sample) / (Fs / 1000)
-                        CPSs = 1000/ICIs
-                        Amps = CTTemp.amplitude[RowN+1:RowN+9]
+                        ICIs = abs(CTTemp.start_sample[RowN + 1:RowN + 9] - Clickstart_sample) / (Fs / 1000)
+                        CPSs = 1000 / ICIs
+                        Amps = CTTemp.amplitude[RowN + 1:RowN + 9]
                         Amps = abs(Amps - ClickAmp)
                         DiffCPSs = abs(ClickCPS - CPSs)
                         DiffCPSs = pd.DataFrame(DiffCPSs)
@@ -463,10 +470,8 @@ CTrainsFileName = thisFolder + '/CTrains.csv'
 CTInfo.to_csv(CTInfoFileName, index=False)
 CTrains.to_csv(CTrainsFileName, index=False)
 
-
 CP = pd.read_pickle('C:/Mel/CPODvsDPorCCA/Simulations/NoiseSamples/JustClicks/Detected_Clips_010120_000100.pkl')
 CP1 = pd.read_csv('C:/Mel/CPODvsDPorCCA/Simulations/NoiseSamples/JustClicks/Detected_Clicks_010120_000100.csv')
-
 
 fig, ax = plt.subplots(2, 1, sharex=True)
 ax[0].scatter(CP.start_sample, CP.amplitude, s=2.0)
