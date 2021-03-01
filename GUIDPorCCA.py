@@ -2331,7 +2331,7 @@ class Ui_MainWindow(object):
         self.ZipMode = QtWidgets.QCheckBox(self.ProjectPan)
         self.ZipMode.setGeometry(10, 110, 180, 30)
         self.ZipMode.setText('Zipped files')
-        self.ZipMode.setChecked(True)
+        self.ZipMode.setChecked(False)
         # Browse button
         self.BrowseDet = QtWidgets.QPushButton(self.ProjectPan)
         self.BrowseDet.setGeometry(300, 85, 110, 30)
