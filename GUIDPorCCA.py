@@ -89,39 +89,36 @@ def ExtractPatterns(myCP, myFs, lat, long):
         myCP["AmpDiff"] = myCP.amplitude.diff()
         myCP = myCP.drop(
             myCP[(myCP.amplitude.shift(1) > myCP.amplitude) & (myCP.amplitude.shift(-1) > myCP.amplitude) & (
-                    myCP.AmpDiff < -5) & (myCP.CPS > 1000)].index)
+                    myCP.AmpDiff < -6)].index)
         myCP.reset_index(inplace=True, drop=True)
-        # print(len(myCP))
         myCP = NewICI(myCP, myFs)
         S2 = len(myCP)
 
-    myCP = myCP.drop(myCP[(myCP.CPS.diff() > 140.0)].index)
+    myCP = myCP.drop(myCP[(myCP.CPS.diff() > 80.0)].index)
     myCP.reset_index(inplace=True, drop=True)
     myCP = NewICI(myCP, myFs)
-    print(myCP)
     ColNames = list(myCP.columns)
     CTrains = pd.DataFrame(data=None, columns=ColNames)
     # # Find click trains
     TimeGaps = myCP[(myCP.ICI > 700.0) | (myCP.ICI < 0.0)].index.to_series()
     TimeGaps.reset_index(inplace=True, drop=True)
     DiffTimeGaps = TimeGaps.diff()
-    print(DiffTimeGaps)
+
     # DiffTimeGaps.at[0] = TimeGaps[0] - 0
     # Find very long CT and reduce them to CT with fewer than 1000 clicks
-    LongCTs = DiffTimeGaps[DiffTimeGaps > 900].index
+    LongCTs = DiffTimeGaps[DiffTimeGaps > 1000].index
 
     if len(LongCTs) > 0:
         for m in range(0, len(LongCTs) - 1):
-            # Length = int(DiffTimeGaps[LongCTs[m]])
-            # CTsInside = math.floor(Length / 600) + 1  # integer less than
+            Length = int(DiffTimeGaps[LongCTs[m]])
+            CTsInside = math.floor(Length / 1000) + 1  # integer less than
             # Add Positions to TimeGaps
             PosInCP = TimeGaps[LongCTs[m]]
             NextPos = TimeGaps[LongCTs[m] + 1]
-            TempCP = myCP.loc[PosInCP:NextPos]
-            NewPos = TempCP.loc[(TempCP['ICI'] > 500)].index.to_series()  # probar con values
+            NewPos = np.linspace(start=PosInCP, stop=NextPos, num=Length / CTsInside)
             TimeGaps.append(NewPos)
         # end
-        # TimeGaps = TimeGaps.sort()
+        TimeGaps = TimeGaps.sort()
         DiffTimeGaps = TimeGaps.diff()
         CTs = DiffTimeGaps[DiffTimeGaps > 9].index
         # CTs.reset_index(inplace=True, drop=True)
@@ -186,6 +183,7 @@ def ExtractPatterns(myCP, myFs, lat, long):
                 window_size = 3
                 i = 0
                 PercCPSDiff = []
+                # moving average
                 while i < len(PercChangeS) - window_size + 1:
                     this_window = PercChangeS[i: i + window_size]
                     # get current window
@@ -194,7 +192,6 @@ def ExtractPatterns(myCP, myFs, lat, long):
                     i += 1
                 PercCPSDiff = pd.DataFrame(PercCPSDiff)
                 PercCPSDiff.reset_index(inplace=True, drop=True)
-                # print(PercCPSDiff)
                 StartRow = PercCPSDiff[PercCPSDiff[0] < 20.0].index.to_series()
                 StartRow.reset_index(inplace=True, drop=True)
                 DiffStartRow = StartRow.diff()
@@ -222,7 +219,7 @@ def ExtractPatterns(myCP, myFs, lat, long):
                         MinVal = DiffCPSs.start_sample.min()
                         ixCPS = DiffCPSs[DiffCPSs.start_sample == MinVal].index
                         if Amps[ixCPS[0]] < 5:
-                            DiffCPSs[ixCPS[0]] = 1000  # high arbitrary numnber
+                            DiffCPSs[ixCPS[0]] = 1000  # high arbitrary number
                             MinVal = DiffCPSs.start_sample.min()
                             ixCPS = DiffCPSs[DiffCPSs.start_sample == MinVal].index
                             RowN = RowN - ixCPS[0]
@@ -246,8 +243,8 @@ def ExtractPatterns(myCP, myFs, lat, long):
                         DiffCPSs = pd.DataFrame(DiffCPSs)
                         MinVal = DiffCPSs.start_sample.min()
                         ixCPS = DiffCPSs[DiffCPSs.start_sample == MinVal].index
-                        if Amps[ixCPS[0]] < 5:
-                            DiffCPSs[ixCPS[0]] = 1000  # high arbitrary numnber
+                        if Amps[ixCPS[0]] < 6:
+                            DiffCPSs[ixCPS[0]] = 1000  # high arbitrary number
                             MinVal = DiffCPSs.start_sample.min()
                             ixCPS = DiffCPSs[DiffCPSs.start_sample == MinVal].index
                             RowN = RowN + ixCPS[0]
@@ -265,7 +262,7 @@ def ExtractPatterns(myCP, myFs, lat, long):
                     RowsToKeep = np.unique(RowsToKeep)
                     RowsToKeep = np.delete(RowsToKeep, np.where(RowsToKeep <= 0))
                     RowsToKeep = np.delete(RowsToKeep, np.where(RowsToKeep > len(CTTemp) - 1))
-                    print(len(CTTemp))
+
                     if len(RowsToKeep) > 0:
                         NewCT = CTTemp.iloc[RowsToKeep]
                         NewCT.reset_index(inplace=True, drop=True)
@@ -277,7 +274,6 @@ def ExtractPatterns(myCP, myFs, lat, long):
         # end
         if len(NewCT) > 0:
             myCTInfo = CTInfoMaker(myCTInfo, NewCT, lat, long)
-            # print(CTInfo)
             # Put result into a final file
             if j == 0:
                 CTrains = NewCT.copy()
@@ -2109,7 +2105,7 @@ class Ui_MainWindow(object):
         MeanSig = sum(Signal) / len(Signal)
         Signal = Signal - MeanSig
         # Signal = Signal/max(Signal)
-        sos = signal.butter(10, 100, 'hp', fs=Fs, output='sos')
+        sos = signal.butter(10, 2000, 'hp', fs=Fs, output='sos')
         self.FiltSig = signal.sosfilt(sos, Signal)
         # the signal
         Duration = len(Signal) / Fs
@@ -2118,13 +2114,27 @@ class Ui_MainWindow(object):
         Overlap = int(self.OverSpec.text())
         self.WaveformSpec.plot(t, self.FiltSig)
         window = signal.get_window('hann', NFFT)
-        freq, t, Pxx = signal.spectrogram(self.FiltSig, fs=Fs, nfft=NFFT, window=window, scaling='density', noverlap=Overlap)
-        Pxx = 10*np.log10(Pxx**2)
-        self.SpectAxes.setImage(Pxx.T, autoRange=False, scale=(100, 600))
-        ColorMap = pg.ColorMap(pos=[0, 0.25, 0.5, 0.75, 1], color=[(0, 0, 255), (200, 255, 255), (100, 255, 150),
-                                                                   (255, 255, 0), (255, 0, 100)])
-        self.SpectAxes.setColorMap(ColorMap)
-        self.SpectWindow.show()
+
+
+        fig, (ax1, ax2) = plt.subplots(nrows=2, sharex=True)
+        ax1.plot(t, self.FiltSig)
+        Pxx, freqs, bins, im = ax2.specgram(self.FiltSig, NFFT=NFFT, Fs=Fs, noverlap=128) #, cmap='jet')
+        ax1.grid(False)
+        ax2.grid(False)
+        # ax1.ylabel('Amplitude')
+        # ax1.title('Waveform')
+        # ax2.ylabel('Frequency (Hz)')
+        # ax2.xlabel('Time (s)')
+        # ax2.title('Spectrogram')
+        plt.show()
+
+        # freq, t, Pxx = signal.spectrogram(self.FiltSig, fs=Fs, nfft=NFFT, window=window, scaling='density', noverlap=Overlap)
+        # Pxx = 10*np.log10(Pxx**2)
+        # self.SpectAxes.setImage(Pxx.T, autoRange=False, scale=(100, 600))
+        # ColorMap = pg.ColorMap(pos=[0, 0.25, 0.5, 0.75, 1], color=[(0, 0, 255), (200, 255, 255), (100, 255, 150),
+        #                                                            (255, 255, 0), (255, 0, 100)])
+        # self.SpectAxes.setColorMap(ColorMap)
+        # self.SpectWindow.show()
 
     def UpdateSpect(self):
         NFFT = int(self.FFTSpec.text())  # length of the windowing segments
@@ -2660,7 +2670,7 @@ class Ui_MainWindow(object):
             serial_number = int(self.SerialNoEdit.text())  # 738496579
             if serial_number == 0:
                 Sens = int(self.SensEditDet.text())
-                hydrop = pyhy.soundtrap.SoundTrap(name=name, model=ModelSel, sensitivity=Sens)
+                hydrop = pyhy.soundtrap.SoundTrap(name=name, model=ModelSel, sensitivity=Sens, serial_number=serial_number)
             else:
                 hydrop = pyhy.soundtrap.SoundTrap(name=name, model=ModelSel, serial_number=serial_number)
 
