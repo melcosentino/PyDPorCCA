@@ -164,21 +164,21 @@ def ExtractPatterns(myCP, myFs, lat, long):
         if MaxDiffSorted <= 40:
             NewCT = CTTemp.copy()
         else:
-            # remove outliers
-            CTTemp['DiffCPS'] = CTTemp.CPS.diff()
-            CTTemp['PercChangeCPS'] = (CTTemp.DiffCPS / CTTemp.CPS[1:-1 - 1]) * 100
-            CTTemp.PercChangeCPS = abs(CTTemp.PercChangeCPS[2:-1])
-            # ToDelete = sum(CTTemp.PercChangeCPS >= 500)
-            CTTemp = CTTemp.drop(CTTemp[CTTemp.PercChangeCPS >= 500].index)
+            # remove outliers (from https://stackoverflow.com/questions/62692771/
+            # outlier-detection-based-on-the-moving-mean-in-python)
+            # Calculate rolling median
+            CTTemp['rolling_CPS'] = CTTemp['CPS'].rolling(window=9).median()
+            # Calculate difference
+            CTTemp['diff_CPS'] = CTTemp['CPS'] - CTTemp['rolling_CPS']
+            # Flag rows to be dropped as `1`
+            # Set threshold for difference with rolling median (they have to be adaptable)
+            upper_threshold = CTTemp['CPS'].median() * 10
+            lower_threshold = -upper_threshold
+            CTTemp['drop_flag'] = np.where((CTTemp['diff_CPS'] > upper_threshold) | (CTTemp['diff_CPS'] < lower_threshold), 1, 0)
+            # Drop flagged rows
+            CTTemp = CTTemp[CTTemp['drop_flag'] != 1]
+            CTTemp = CTTemp.drop(['rolling_CPS', 'rolling_CPS', 'diff_CPS', 'drop_flag'], axis=1)
             CTTemp.reset_index(inplace=True, drop=True)
-            # CTTemp.reset_index(inplace=True, drop=True)
-            # ToDelete = 0
-            # CTTemp = NewICI(CTTemp, myFs)
-            # CTTemp.DiffCPS = CTTemp.CPS.diff()
-            # CTTemp.PercChangeCPS = (CTTemp.DiffCPS / CTTemp.CPS[1:-1 - 1]) * 100
-            # CTTemp.PercChangeCPS = abs(CTTemp.PercChangeCPS[2:-1])
-            # ToDelete = sum(CTTemp.PercChangeCPS >= 500)
-            # print(ToDelete)
 
             SortedCPS = CTTemp.CPS.values.copy()
             SortedCPS.sort()
@@ -268,10 +268,7 @@ def ExtractPatterns(myCP, myFs, lat, long):
                     # end
                     RowsToKeep = np.append(RowsToKeep, RowN)
                     # end
-                    # adding the first 10 and the last 10 rows (although might not be needed)
 
-                    # RowsToKeep.append(CTTemp[0:10].index)
-                    # RowsToKeep.append(CTTemp[-1-9:-1].index)
                     RowsToKeep = np.unique(RowsToKeep)
                     RowsToKeep = np.delete(RowsToKeep, np.where(RowsToKeep <= 0))
                     RowsToKeep = np.delete(RowsToKeep, np.where(RowsToKeep > len(CTTemp) - 1))
@@ -287,21 +284,6 @@ def ExtractPatterns(myCP, myFs, lat, long):
         # end
         NewCT.reset_index(inplace=True, drop=True)
         if len(NewCT) > 0:
-            # L1 = len(NewCT)
-            # L2 = 1
-            # while L2 != L1:
-            #     L1 = len(NewCT)
-            #     NewCT = NewICI(NewCT, myFs)
-            #     print(NewCT)
-            #     LooseClicks = NewCT[NewCT.ICI > 400].index.to_series()
-            #     print(LooseClicks)
-            #     # Positions = find(diff(LooseClicks) == 1)
-            #     RowsToDelete = LooseClicks[LooseClicks.diff() == 1]
-            #     NewCT = NewCT.drop(RowsToDelete)
-            #     NewCT.reset_index(inplace=True, drop=True)
-            #     L2 = len(NewCT)
-            # # end
-
             myCTInfo = CTInfoMaker(myCTInfo, NewCT, lat, long)
             # Put result into a final file
             if j == 0:
