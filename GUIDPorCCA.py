@@ -2348,6 +2348,11 @@ class Ui_MainWindow(object):
         self.CheckAllFolders.setGeometry(10, 85, 180, 30)
         self.CheckAllFolders.setText('Include subfolders')
         self.CheckAllFolders.setChecked(True)
+        # Checkbox zipfile
+        self.ZipMode = QtWidgets.QCheckBox(self.ProjectPan)
+        self.ZipMode.setGeometry(10, 110, 180, 30)
+        self.ZipMode.setText('Zipped files')
+        self.ZipMode.setChecked(False)
         # Browse button
         self.BrowseDet = QtWidgets.QPushButton(self.ProjectPan)
         self.BrowseDet.setGeometry(300, 85, 110, 30)
@@ -2731,16 +2736,22 @@ class Ui_MainWindow(object):
             detector = None
 
         # for loop to go into subfolders
+        zip_mode = self.ZipMode.isChecked()
         if self.CheckAllFolders.isChecked():
             FilesAndFolders = os.listdir(MainFolder)
-            Folders = [s for s in FilesAndFolders if os.path.isdir(os.path.join(MainFolder, s))]
+            if zip_mode:
+                Folders = [s for s in FilesAndFolders]
+                detector.save_folder = MainFolder
+            else:
+                Folders = [s for s in FilesAndFolders if os.path.isdir(os.path.join(MainFolder, s))]
             for thisFolder in Folders:
                 ThisFolderSave = MainFolder + '/' + thisFolder
                 print('Detecting clicks in', ThisFolderSave)
-                detector.save_folder = ThisFolderSave
-                detector.detect_click_clips_folder(ThisFolderSave, blocksize=blocksize)
+                if not zip_mode:
+                    detector.save_folder = ThisFolderSave
+                detector.detect_click_clips_folder(ThisFolderSave, blocksize=blocksize, zip_mode=zip_mode)
         else:
-            detector.detect_click_clips_folder(MainFolder, blocksize=blocksize)  # Fs * 60
+            detector.detect_click_clips_folder(MainFolder, blocksize=blocksize, zip_mode=zip_mode)
 
 
     def CancelDetector(self):
