@@ -11,26 +11,25 @@ __credits__ = "Mel Cosentino"
 __email__ = "orcinus.orca.1758@gmail.com"
 __status__ = "Development"
 
-import tkinter as tk
-import pandas as pd
-import pyqtgraph as pg
-import os
-import numpy as np
-import soundfile
-import matplotlib.pyplot as plt
-import pyhydrophone as pyhy
 import math
+import os
+import tkinter as tk
+from datetime import datetime
+from datetime import time
+from tkinter import filedialog
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import pyhydrophone as pyhy
+import pyqtgraph as pg
 import pyqtgraph.opengl as gl
-import h5py
+import soundfile
+from PyQt5 import QtCore, QtGui
+from PyQt5 import QtWidgets
 from pyporcc import click_detector
 from pyporcc import porcc
 from scipy import signal
-from PyQt5 import QtCore, QtGui
-from PyQt5 import QtWidgets
-from tkinter import filedialog
-from datetime import time
-from datetime import datetime
-import pathlib
 
 # from PyQt5.QtWidgets import QTableWidgetItem
 
@@ -111,9 +110,9 @@ def ExtractPatterns(myCP, myFs, lat, long):
             # Add Positions to TimeGaps
             PosInCP = int(TimeGaps[LongCTs[m]])
             NextPos = int(TimeGaps[LongCTs[m] + 1])
-            NewPos = np.linspace(start=PosInCP, stop=NextPos, num=CTsInside+2).astype(int)
+            NewPos = np.linspace(start=PosInCP, stop=NextPos, num=CTsInside + 2).astype(int)
             NewPos = pd.Series(NewPos)
-            TimeGaps.append(NewPos[1:-1-1])
+            TimeGaps.append(NewPos[1:-1 - 1])
         DiffTimeGaps = TimeGaps.diff()
         CTs = DiffTimeGaps[DiffTimeGaps > 9].index
     else:
@@ -174,7 +173,8 @@ def ExtractPatterns(myCP, myFs, lat, long):
             # Set threshold for difference with rolling median (they have to be adaptable)
             upper_threshold = CTTemp['CPS'].median() * 10
             lower_threshold = -upper_threshold
-            CTTemp['drop_flag'] = np.where((CTTemp['diff_CPS'] > upper_threshold) | (CTTemp['diff_CPS'] < lower_threshold), 1, 0)
+            CTTemp['drop_flag'] = np.where(
+                (CTTemp['diff_CPS'] > upper_threshold) | (CTTemp['diff_CPS'] < lower_threshold), 1, 0)
             # Drop flagged rows
             CTTemp = CTTemp[CTTemp['drop_flag'] != 1]
             CTTemp = CTTemp.drop(['rolling_CPS', 'rolling_CPS', 'diff_CPS', 'drop_flag'], axis=1)
@@ -391,6 +391,7 @@ def UpdateWaterfall(XLimMin, YLimMin, ZLimMin, XLimMax, YLimMax, ZLimMax):
     # WaterfallAx.YLim = [YLimMin, YLimMax]
     # WaterfallAx.ZLim = [ZLimMin, ZLimMax]
     # WaterfallAx.ZTick = []
+
 
 def CTInfoMaker(myCTInfo, myCTTemp, myLat, myLong):  # srise, sset
     # Store in CTInfo
@@ -1874,7 +1875,7 @@ class Ui_MainWindow(object):
             CTTemp.reset_index(inplace=True, drop=True)
         if len(CTTemp) > 9:
             fs = 1 / (CTTemp.iloc[3]['ICI'] / (
-                        1000 * (CTTemp.iloc[3]["start_sample"] - CTTemp.iloc[2]["start_sample"])))
+                    1000 * (CTTemp.iloc[3]["start_sample"] - CTTemp.iloc[2]["start_sample"])))
             CTTemp = NewICI(CTTemp, fs)
             CTTemp.loc[:, 'SumMs'] = int(0)
             # print(CTTemp)
@@ -2014,7 +2015,7 @@ class Ui_MainWindow(object):
         FFT = 512
         CTTemp['iciSum'] = 0
         for i in range(1, len(CTTemp)):
-            CTTemp.iciSum[i] = CTTemp.ICI[i] + CTTemp.iciSum[i-1]
+            CTTemp.iciSum[i] = CTTemp.ICI[i] + CTTemp.iciSum[i - 1]
         WavFileToOpen = CTTemp.filename[0]
 
         ## CREATE empty x, y, and z for the waterfall plot
@@ -2056,7 +2057,7 @@ class Ui_MainWindow(object):
 
         # self.Plot3D.add_subplot(111, projection='3d')
 
-        #n = 0
+        # n = 0
         print(len(y1), len(x1), len(z1))
         p2 = gl.GLSurfacePlotItem(y=y1, x=x1, z=z1, shader='shaded', color=(0.5, 0.5, 1, 1))
         p2.translate(-10, -30, 10)
@@ -2070,7 +2071,6 @@ class Ui_MainWindow(object):
         # plt.scatter(self.Plot3D, x1, y1, z1)
         self.Fig3D.show()
         self.Plot3D.show()
-
 
     def CreateSpectrogram(self):
         global CTTemp, Fs, Name, FileToOpen
@@ -2126,10 +2126,9 @@ class Ui_MainWindow(object):
         self.WaveformSpec.plot(t, self.FiltSig)
         window = signal.get_window('hann', NFFT)
 
-
         fig, (ax1, ax2) = plt.subplots(nrows=2, sharex=True)
         ax1.plot(t, self.FiltSig)
-        Pxx, freqs, bins, im = ax2.specgram(self.FiltSig, NFFT=NFFT, Fs=Fs, noverlap=128) #, cmap='jet')
+        Pxx, freqs, bins, im = ax2.specgram(self.FiltSig, NFFT=NFFT, Fs=Fs, noverlap=128)  # , cmap='jet')
         ax1.grid(False)
         ax2.grid(False)
         # ax1.ylabel('Amplitude')
@@ -2151,10 +2150,11 @@ class Ui_MainWindow(object):
         NFFT = int(self.FFTSpec.text())  # length of the windowing segments
         Overlap = int(self.OverSpec.text())
         window = signal.get_window('hann', NFFT)
-        freq, t, Pxx = signal.spectrogram(self.FiltSig, fs=Fs, nfft=NFFT, window=window, scaling='density', noverlap=Overlap)
+        freq, t, Pxx = signal.spectrogram(self.FiltSig, fs=Fs, nfft=NFFT, window=window, scaling='density',
+                                          noverlap=Overlap)
         Pxx = 10 * np.log10(Pxx ** 2)
-        Ratio = NFFT/Overlap
-        x = (Ratio**2)*7
+        Ratio = NFFT / Overlap
+        x = (Ratio ** 2) * 7
         self.SpectAxes.setImage(Pxx.T, autoRange=False, scale=(x, 600))
         ColorMap = pg.ColorMap(pos=[0, 0.25, 0.5, 0.75, 1], color=[(0, 0, 255), (200, 255, 255), (100, 255, 150),
                                                                    (255, 255, 0), (255, 0, 100)])
@@ -2190,7 +2190,6 @@ class Ui_MainWindow(object):
         root.withdraw()
         BrowseSelectedFolder = filedialog.askdirectory()
         self.SelectFolderMetricEdit.setText(BrowseSelectedFolder)
-
 
     """
     MENUS
@@ -2686,7 +2685,8 @@ class Ui_MainWindow(object):
             serial_number = int(self.SerialNoEdit.text())  # 738496579
             if serial_number == 0:
                 Sens = int(self.SensEditDet.text())
-                hydrop = pyhy.soundtrap.SoundTrap(name=name, model=ModelSel, sensitivity=Sens, serial_number=serial_number)
+                hydrop = pyhy.soundtrap.SoundTrap(name=name, model=ModelSel, sensitivity=Sens,
+                                                  serial_number=serial_number)
             else:
                 hydrop = pyhy.soundtrap.SoundTrap(name=name, model=ModelSel, serial_number=serial_number)
 
@@ -2727,8 +2727,9 @@ class Ui_MainWindow(object):
             pfilter = click_detector.Filter(filter_name='butter', filter_type='bandpass', order=4,
                                             frequencies=[MinFrq, MaxFrq])
             detector = click_detector.ClickDetectorSoundTrapHF(hydrophone=hydrop, prefilter=pfilter,
-                                                                save_folder=MainFolder, convert=True,
-                                                                click_model_path=None, classifier=classifier, save_noise=False)
+                                                               save_folder=MainFolder, convert=True,
+                                                               click_model_path=None, classifier=classifier,
+                                                               save_noise=False)
             blocksize = None
 
         else:
@@ -2752,7 +2753,6 @@ class Ui_MainWindow(object):
                 detector.detect_click_clips_folder(ThisFolderSave, blocksize=blocksize, zip_mode=zip_mode)
         else:
             detector.detect_click_clips_folder(MainFolder, blocksize=blocksize, zip_mode=zip_mode)
-
 
     def CancelDetector(self):
         self.MenuDetSetFig.close()
@@ -3023,6 +3023,7 @@ class Ui_MainWindow(object):
     def SaveUpdates(self):
         FullName = self.SelectedFolder + '/CTInfo.csv'
         CTInfo.to_csv(FullName)
+
 
 if __name__ == "__main__":
     import sys
