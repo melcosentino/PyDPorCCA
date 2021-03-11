@@ -2718,7 +2718,8 @@ class Ui_MainWindow(object):
             serial_number = int(self.SerialNoEdit.text())  # 738496579
             if serial_number == 0:
                 Sens = int(self.SensEditDet.text())
-                hydrop = pyhy.soundtrap.SoundTrapHF(name=name, model=ModelSel, sensitivity=Sens)
+                hydrop = pyhy.soundtrap.SoundTrapHF(name=name, model=ModelSel, sensitivity=Sens,
+                                                    serial_number=serial_number)
             else:
                 hydrop = pyhy.soundtrap.SoundTrapHF(name=name, model=ModelSel, serial_number=serial_number)
             MinFrq = float(self.MinFreqEd.text()) * 1000
