@@ -2740,7 +2740,7 @@ class Ui_MainWindow(object):
         if self.CheckAllFolders.isChecked():
             FilesAndFolders = os.listdir(MainFolder)
             if zip_mode:
-                Folders = [s for s in FilesAndFolders]
+                Folders = [s for s in FilesAndFolders if 'zip' in s]
                 detector.save_folder = MainFolder
             else:
                 Folders = [s for s in FilesAndFolders if os.path.isdir(os.path.join(MainFolder, s))]
