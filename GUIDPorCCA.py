@@ -432,7 +432,7 @@ def Species(CT):
     CPSDiff = CPSDiff.drop([0])
     PercChange = (CPSDiff / CT.CPS[1:-1 - 1]) * 100
     MedianPercChangeCPS = abs(PercChange[1:-1]).median()
-    if len(CTTemp) < 10:
+    if len(CT) < 10:
         Type = 'Non-NBHF'
     elif MedianPercChangeCF < 0.5 and MedianPercChangeCPS < 0.05 and SDCF < 300:
         Type = 'Non-NBHF'
@@ -568,6 +568,7 @@ class Ui_MainWindow(object):
         self.SelectFoldLab = QtWidgets.QLabel(self.MetricsUploadPan)
         self.SelectFolderMetricEdit = QtWidgets.QLineEdit(self.MetricsUploadPan)
         self.MetricBrowseButton = QtWidgets.QPushButton(self.MetricsUploadPan)
+        self.CheckAllFoldersMetr = QtWidgets.QCheckBox(self.MetricsUploadPan)
 
         self.ClearButton = QtWidgets.QPushButton(self.MetricsDisplayPan)
         self.DisplayMetricsButton = QtWidgets.QPushButton(self.MetricsDisplayPan)
@@ -1117,6 +1118,10 @@ class Ui_MainWindow(object):
         self.MetricBrowseButton.setGeometry(QtCore.QRect(300, 74, 120, 40))
         self.MetricBrowseButton.setFont(self.font)
         self.MetricBrowseButton.setObjectName("MetricBrowseButton")
+        # CheckBox
+        self.CheckAllFoldersMetr.setGeometry(20, 74, 180, 30)
+        self.CheckAllFoldersMetr.setText('Include subfolders')
+        self.CheckAllFoldersMetr.setChecked(True)
 
         # TODO SHOULD CALL MetricBrowse.py here
         self.MetricBrowseButton.clicked.connect(self.MetricsBrowse)
@@ -2192,6 +2197,80 @@ class Ui_MainWindow(object):
         BrowseSelectedFolder = filedialog.askdirectory()
         self.SelectFolderMetricEdit.setText(BrowseSelectedFolder)
 
+    def UploadMetricData(self):
+        global topLevelFolderMetrics, CTInfo, CP, thisFolder
+        topLevelFolderMetrics = self.SelectFolderMetricEdit.text()
+        # Check whether the PosPorMin and SummaryTable files have been created
+        FilesAndFolders = os.listdir(topLevelFolderMetrics)
+        PPMFile = [s for s in FilesAndFolders if "PosPorMin.csv" in s]
+        SummaryFile = [s for s in FilesAndFolders if "SummaryTable.csv" in s]
+        # Open if ready
+        if PPMFile and SummaryFile:
+            FileToOpenPPM = topLevelFolderMetrics + '/PosPorMin.csv'
+            PPM = pd.read_csv(FileToOpenPPM)
+            FileToOpenCT = topLevelFolderMetrics + '/SummaryTable.csv'
+            SumTable = pd.read_csv(FileToOpenCT)
+        else:  # If the data needs to be prepared
+            PPM = pd.DataFrame()
+            if self.CheckAllFoldersMetr.isChecked():
+                # List subfolders
+                Folders = [item for item in os.listdir(topLevelFolderMetrics) if os.path.isdir(os.path.join(topLevelFolderMetrics, item))]
+                numberOfFoldersMetrics = len(Folders)
+                for myFolder in Folders:
+                    Files = os.listdir(os.path.join(topLevelFolderMetrics, myFolder))
+                    CTInfoFile = [s for s in Files if "CTInfo.csv" in s]
+                    if len(CTInfoFile) > 0:
+                        CTInfo = pd.read_csv(os.path.join(topLevelFolderMetrics, myFolder, "CTInfo.csv"))
+                    # CTrains = [s for s in Files if "CTrains.csv" in s]
+                    Date = CTInfo.Date[0]
+                    NewDate = int(Date[0:4] + Date[5:7] + Date[8:10])
+
+                    print(NewDate)
+
+                    # Metrics.Date[d-2] = strftime(datetime(yyyy, mmm, dd))
+
+                # if any("." not in s for s in FilesAndFolders):
+                #     listOfFolderNamesMetrics = [s for s in FilesAndFolders if "." not in s]
+                #     numberOfFoldersMetrics = len(listOfFolderNamesMetrics)
+                #     ColName = ['Minute']
+                #     Minutes = pd.DataFrame(0, index=np.arange(1440), columns=ColName)
+                #     Minutes.iloc[0, 0] = '00:00'
+                #     Minutes.iloc[1:1440, 0] = range(1, 1440)
+                #     for i in range(1, len(Minutes)):
+                #         if int(i) < 60:
+                #             a = time(hour=0, minute=int(i))
+                #             Minutes.iloc[i, 0] = a.strftime('%H:%M')
+                #         else:
+                #             h = int(int(i) / 60)
+                #             m = int(i) % 60
+                #             a = time(hour=int(h), minute=int(m))
+                #             Minutes.iloc[i, 0] = a.strftime('%H:%M')
+                #     # Put in Clicks Per Minute
+                #     #    self.TimesRec = pd.DataFrame()
+                #     numberOfFoldersMetrics = len(listOfFolderNamesMetrics)
+                #     PPM = pd.DataFrame(0, index=np.arange(1440), columns=['Minute', listOfFolderNamesMetrics])
+                #     for FolderN in range(0, numberOfFoldersMetrics - 1):
+                #         # load file
+                #         thisFolder = listOfFolderNamesMetrics[FolderN]
+                #         CTInfoFile = thisFolder + '/CTInfo.csv'
+                #         CTInfo = pd.read_csv(CTInfoFile)
+                #         # Load ClickParameters
+                #         ClickParFile = thisFolder + '/CPar.csv'
+                #         CP = pd.read_csv(ClickParFile)
+                #         CTInfo.CT = int(CTInfo.CT)
+                #         # check the positive min
+                #         AllNBHF = CTInfo[CTInfo.Species != 'Non-NBHF']
+                #         for i in range(0, len(AllNBHF)):
+                #             Time = AllNBHF.Date.iloc[i]
+                #             Time = str(Time)
+                #             Hour = int(Time[11:13]) * 60
+                #             Min = int(Time[14:16])
+                #             RowN = Hour + Min + 1
+                #             PPM.Positive[RowN, FolderN - 1] = 1
+                #             PPM.NumCT[RowN, FolderN - 1] = PPM.NumCT[RowN, FolderN - 1] + 1
+                #             PPM.NumClicks[RowN, FolderN - 1] = PPM.NumClicks[RowN, FolderN - 1] + AllNBHF.Length[i]
+                #         FullName = thisFolder + 'PosPorMin.csv'
+                #         PPM.to_csv(FullName)
     """
     MENUS
     """
@@ -2731,8 +2810,8 @@ class Ui_MainWindow(object):
     def BrowseButtonDet(self):
         root = tk.Tk()
         root.withdraw()
-        self.SelectedFolder = filedialog.askdirectory()
-        self.FolderPathDet.setText(self.SelectedFolder)
+        SelectedFolderDet = filedialog.askdirectory()
+        self.FolderPathDet.setText(SelectedFolderDet)
 
     def BrowseButtonPorCC(self):
         root = tk.Tk()
@@ -2751,7 +2830,7 @@ class Ui_MainWindow(object):
         self.SelectFolderText2.setGeometry(20, 10, 100, 30)
         self.SelectFolderText2.setText('Select Folder')
         self.FolderPathNewCT.setGeometry(10, 40, 300, 30)
-        # self.FolderPathNewCT.setText('C:\Users')
+        self.FolderPathNewCT.setText('C:/')
         self.InclSubFoldersNewCT.setGeometry(10, 80, 180, 20)
         self.InclSubFoldersNewCT.setText("Include subfolders")
         # browse button
@@ -2798,8 +2877,7 @@ class Ui_MainWindow(object):
         latitude = float(self.LatEdit.text())
         longitude = float(self.LongEdit.text())
         if self.InclSubFoldersNewCT.isChecked():
-            FilesAndFolders = os.listdir(MainFolder)
-            myFolders = [s for s in FilesAndFolders if "." not in s]
+            myFolders = [item for item in os.listdir(MainFolder) if os.path.isdir(os.path.join(MainFolder, item))]
         else:
             myFolders = MainFolder
             print(myFolders)
@@ -2816,7 +2894,7 @@ class Ui_MainWindow(object):
                     if myFolders == MainFolder:
                         CPFileName = MainFolder + '/CP.csv'
                     else:
-                        CPFileName = MainFolder + '/' + thisFolder + '/CP.csv'
+                        CPFileName = MainFolder + '/' + myFolder + '/CP.csv'
                     CP = pd.read_csv(CPFileName)
                 else:
                     DetClicks = [s for s in FilesInFolder if "clips.csv" in s]
@@ -2825,14 +2903,14 @@ class Ui_MainWindow(object):
                         if myFolders == MainFolder:
                             CPFile = MainFolder + '/' + thisFile
                         else:
-                            CPFile = MainFolder + '/' + thisFolder + '/' + thisFile
+                            CPFile = MainFolder + '/' + myFolder + '/' + thisFile
                         TempCP = pd.read_csv(CPFile, index_col=0)
                         TempCP['id'] = TempCP.index.values
                         CP = CP.append(TempCP, ignore_index=True)
                     if myFolders == MainFolder:
                         CPFileName = MainFolder + '/CP.csv'
                     else:
-                        CPFileName = MainFolder + '/' + thisFolder + '/CP.csv'
+                        CPFileName = MainFolder + '/' + myFolder + '/CP.csv'
                     CP.to_csv(CPFileName, index=False)
 
             fs = 576000  # I will need a settings file
@@ -2844,8 +2922,8 @@ class Ui_MainWindow(object):
                 CTrains.to_csv(CTrainsFileName, index=False)
                 break
             else:
-                CTInfoFileName = MainFolder + '/' + thisFolder + '/CTInfo.csv'
-                CTrainsFileName = MainFolder + '/' + thisFolder + '/CTrains.csv'
+                CTInfoFileName = MainFolder + '/' + myFolder + '/CTInfo.csv'
+                CTrainsFileName = MainFolder + '/' + myFolder + '/CTrains.csv'
                 thisCTInfo.to_csv(CTInfoFileName, index=False)
                 CTrains.to_csv(CTrainsFileName, index=False)
 
@@ -2859,6 +2937,7 @@ class Ui_MainWindow(object):
         self.SelectedFolderCT = filedialog.askdirectory()
         self.FolderPathOpenCT.setText(self.SelectedFolderCT)
 
+
     def OpenCT(self):
         global CP, CTInfo
         self.OpenCTFig.close()
@@ -2871,60 +2950,6 @@ class Ui_MainWindow(object):
         NumCT = int(CTInfo.CTNum.iloc[0])
         self.UpdateCT(NumCT, CP, CTInfo)
 
-    def UploadMetricData(self):
-        global topLevelFolderMetrics, CTInfo, CP, thisFolder
-        topLevelFolderMetrics = self.SelectFolderMetricEdit.text()
-        FilesAndFolders = os.listdir(topLevelFolderMetrics)
-        PPMFile = [s for s in FilesAndFolders if "PosPorMin" in s]
-        SummaryFile = [s for s in FilesAndFolders if "SummaryTable" in s]
-        if PPMFile and SummaryFile:
-            FileToOpenPPM = topLevelFolderMetrics + '/PosPorMin.csv'
-            PPM = pd.read_csv(FileToOpenPPM)
-            FileToOpenCT = topLevelFolderMetrics + '/SummaryTable.csv'
-            SumTable = pd.read_csv(FileToOpenCT)
-        else:  # If the data needs to be prepared
-            if any("." not in s for s in FilesAndFolders):
-                listOfFolderNamesMetrics = [s for s in FilesAndFolders if "." not in s]
-                numberOfFoldersMetrics = len(listOfFolderNamesMetrics)
-                ColName = ['Minute']
-                Minutes = pd.DataFrame(0, index=np.arange(1440), columns=ColName)
-                Minutes.iloc[0, 0] = '00:00'
-                Minutes.iloc[1:1440, 0] = range(1, 1440)
-                for i in range(1, len(Minutes)):
-                    if int(i) < 60:
-                        a = time(hour=0, minute=int(i))
-                        Minutes.iloc[i, 0] = a.strftime('%H:%M')
-                    else:
-                        h = int(int(i) / 60)
-                        m = int(i) % 60
-                        a = time(hour=int(h), minute=int(m))
-                        Minutes.iloc[i, 0] = a.strftime('%H:%M')
-                # Put in Clicks Per Minute
-                #    self.TimesRec = pd.DataFrame()
-                numberOfFoldersMetrics = len(listOfFolderNamesMetrics)
-                PPM = pd.DataFrame(0, index=np.arange(1440), columns=['Minute', listOfFolderNamesMetrics])
-                for FolderN in range(0, numberOfFoldersMetrics - 1):
-                    # load file
-                    thisFolder = listOfFolderNamesMetrics[FolderN]
-                    CTInfoFile = thisFolder + '/CTInfo.csv'
-                    CTInfo = pd.read_csv(CTInfoFile)
-                    # Load ClickParameters
-                    ClickParFile = thisFolder + '/CPar.csv'
-                    CP = pd.read_csv(ClickParFile)
-                    CTInfo.CT = int(CTInfo.CT)
-                    # check the positive min
-                    AllNBHF = CTInfo[CTInfo.Species != 'Non-NBHF']
-                    for i in range(0, len(AllNBHF)):
-                        Time = AllNBHF.Date.iloc[i]
-                        Time = str(Time)
-                        Hour = int(Time[11:13]) * 60
-                        Min = int(Time[14:16])
-                        RowN = Hour + Min + 1
-                        PPM.Positive[RowN, FolderN - 1] = 1
-                        PPM.NumCT[RowN, FolderN - 1] = PPM.NumCT[RowN, FolderN - 1] + 1
-                        PPM.NumClicks[RowN, FolderN - 1] = PPM.NumClicks[RowN, FolderN - 1] + AllNBHF.Length[i]
-                    FullName = thisFolder + 'PosPorMin.csv'
-                    PPM.to_csv(FullName)
 
     def SaveUpdates(self):
         FullName = self.SelectedFolder + '/CTInfo.csv'
