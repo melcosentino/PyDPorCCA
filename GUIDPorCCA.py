@@ -126,34 +126,34 @@ def ExtractPatterns(myCP, myFs, lat, long):
         else:
             Start = TimeGaps[CTs[j] - 1]
             End = TimeGaps[CTs[j]]
-        CTTemp = myCP[Start:End]
-        CTTemp.reset_index(inplace=True, drop=True)
-        L1 = len(CTTemp)
+        CT = myCP[Start:End]
+        CT.reset_index(inplace=True, drop=True)
+        L1 = len(CT)
         L2 = 1
         while L2 != L1:
-            L1 = len(CTTemp)
-            CTTemp = NewICI(CTTemp, myFs)
-            CTTemp = CTTemp.drop(CTTemp[(CTTemp.start_sample.diff() < 500)
-                                        & ((CTTemp.amplitude.diff() < 0) | (CTTemp.start_sample.diff() > 6))].index)
-            CTTemp.reset_index(inplace=True, drop=True)
-            L2 = len(CTTemp)
+            L1 = len(CT)
+            CT = NewICI(CT, myFs)
+            CT = CT.drop(CT[(CT.start_sample.diff() < 500)
+                                        & ((CT.amplitude.diff() < 0) | (CT.start_sample.diff() > 6))].index)
+            CT.reset_index(inplace=True, drop=True)
+            L2 = len(CT)
         CTNum = CTNum + 1
-        CTTemp = CTTemp.assign(CT=CTNum)
+        CT = CT.assign(CT=CTNum)
         # Delete loose clicks
-        L1 = len(CTTemp)
+        L1 = len(CT)
         L2 = 1
         while L2 != L1:
-            L1 = len(CTTemp)
-            CTTemp = NewICI(CTTemp, myFs)
-            LooseClicks = CTTemp[CTTemp.ICI > 400].index.to_series()
+            L1 = len(CT)
+            CT = NewICI(CT, myFs)
+            LooseClicks = CT[CT.ICI > 400].index.to_series()
             # Positions = find(diff(LooseClicks) == 1)
             RowsToDelete = LooseClicks[LooseClicks.diff() == 1]
-            CTTemp = CTTemp.drop(RowsToDelete)
-            CTTemp.reset_index(inplace=True, drop=True)
-            L2 = len(CTTemp)
+            CT = CT.drop(RowsToDelete)
+            CT.reset_index(inplace=True, drop=True)
+            L2 = len(CT)
         # end
         # A large difference indicates echoes
-        SortedCPS = CTTemp.CPS.values.copy()
+        SortedCPS = CT.CPS.values.copy()
         SortedCPS.sort()
         DiffSorted = pd.DataFrame(SortedCPS).diff()
         DiffSorted = DiffSorted.drop([0])
@@ -161,37 +161,37 @@ def ExtractPatterns(myCP, myFs, lat, long):
         # ExploreCTTemp(CTTemp)
 
         if MaxDiffSorted <= 40:
-            NewCT = CTTemp.copy()
+            NewCT = CT.copy()
         else:
             # remove outliers (from https://stackoverflow.com/questions/62692771/
             # outlier-detection-based-on-the-moving-mean-in-python)
             # Calculate rolling median
-            CTTemp['rolling_CPS'] = CTTemp['CPS'].rolling(window=9).median()
+            CT['rolling_CPS'] = CT['CPS'].rolling(window=9).median()
             # Calculate difference
-            CTTemp['diff_CPS'] = CTTemp['CPS'] - CTTemp['rolling_CPS']
+            CT['diff_CPS'] = CT['CPS'] - CT['rolling_CPS']
             # Flag rows to be dropped as `1`
             # Set threshold for difference with rolling median (they have to be adaptable)
-            upper_threshold = CTTemp['CPS'].median() * 10
+            upper_threshold = CT['CPS'].median() * 10
             lower_threshold = -upper_threshold
-            CTTemp['drop_flag'] = np.where(
-                (CTTemp['diff_CPS'] > upper_threshold) | (CTTemp['diff_CPS'] < lower_threshold), 1, 0)
+            CT['drop_flag'] = np.where(
+                (CT['diff_CPS'] > upper_threshold) | (CT['diff_CPS'] < lower_threshold), 1, 0)
             # Drop flagged rows
-            CTTemp = CTTemp[CTTemp['drop_flag'] != 1]
-            CTTemp = CTTemp.drop(['rolling_CPS', 'rolling_CPS', 'diff_CPS', 'drop_flag'], axis=1)
-            CTTemp.reset_index(inplace=True, drop=True)
+            CT = CT[CT['drop_flag'] != 1]
+            CT = CT.drop(['rolling_CPS', 'rolling_CPS', 'diff_CPS', 'drop_flag'], axis=1)
+            CT.reset_index(inplace=True, drop=True)
 
-            SortedCPS = CTTemp.CPS.values.copy()
+            SortedCPS = CT.CPS.values.copy()
             SortedCPS.sort()
             DiffSorted = pd.DataFrame(SortedCPS).diff()
             DiffSorted = DiffSorted.drop([0])
             MaxDiffSorted = DiffSorted.max().values
             # ExploreCTTemp(CTTemp)
             if MaxDiffSorted <= 50:
-                NewCT = CTTemp.copy()
-            elif len(CTTemp) > 20:
+                NewCT = CT.copy()
+            elif len(CT) > 20:
                 # Finding the stable areas
-                CPSDiff = CTTemp.CPS.diff()
-                PercChangeS = (CPSDiff / CTTemp.CPS[1:-1 - 1]) * 100
+                CPSDiff = CT.CPS.diff()
+                PercChangeS = (CPSDiff / CT.CPS[1:-1 - 1]) * 100
                 PercChangeS = abs(PercChangeS[2:-1])
                 window_size = 3
                 i = 0
@@ -211,7 +211,7 @@ def ExtractPatterns(myCP, myFs, lat, long):
                 Here = DiffStartRow[DiffStartRow == 1].index.to_series()
                 Here.reset_index(inplace=True, drop=True)
                 if len(StartRow) < 2:
-                    NewCT = CTTemp.copy()
+                    NewCT = CT.copy()
                     NewCT = NewICI(NewCT, myFs)
                 else:  # go into the CT
                     RowN = StartRow[0]  # Low variability in CPS(for the next 4)
@@ -220,12 +220,12 @@ def ExtractPatterns(myCP, myFs, lat, long):
 
                     # Look backwards
                     while RowN > 5:
-                        ClickCPS = CTTemp.CPS.iloc[RowN]
-                        ClickAmp = CTTemp.amplitude.iloc[RowN]
-                        Clickstart_sample = CTTemp.start_sample.iloc[RowN]
-                        ICIs = abs(Clickstart_sample - CTTemp.start_sample[RowN - 5:RowN - 1]) / (myFs / 1000)
+                        ClickCPS = CT.CPS.iloc[RowN]
+                        ClickAmp = CT.amplitude.iloc[RowN]
+                        Clickstart_sample = CT.start_sample.iloc[RowN]
+                        ICIs = abs(Clickstart_sample - CT.start_sample[RowN - 5:RowN - 1]) / (myFs / 1000)
                         CPSs = 1000 / ICIs
-                        Amps = CTTemp.amplitude[RowN - 5:RowN - 1]
+                        Amps = CT.amplitude[RowN - 5:RowN - 1]
                         Amps = abs(ClickAmp - Amps)
                         DiffCPSs = abs(ClickCPS - CPSs)
                         DiffCPSs = pd.DataFrame(DiffCPSs)
@@ -244,13 +244,13 @@ def ExtractPatterns(myCP, myFs, lat, long):
 
                     # Look forwards
                     RowN = FirstRowN
-                    while RowN < len(CTTemp) - 10:
-                        ClickCPS = CTTemp.CPS.iloc[RowN]
-                        ClickAmp = CTTemp.amplitude.iloc[RowN]
-                        Clickstart_sample = CTTemp.start_sample.iloc[RowN]
-                        ICIs = abs(CTTemp.start_sample[RowN + 1:RowN + 9] - Clickstart_sample) / (myFs / 1000)
+                    while RowN < len(CT) - 10:
+                        ClickCPS = CT.CPS.iloc[RowN]
+                        ClickAmp = CT.amplitude.iloc[RowN]
+                        Clickstart_sample = CT.start_sample.iloc[RowN]
+                        ICIs = abs(CT.start_sample[RowN + 1:RowN + 9] - Clickstart_sample) / (myFs / 1000)
                         CPSs = 1000 / ICIs
-                        Amps = CTTemp.amplitude[RowN + 1:RowN + 9]
+                        Amps = CT.amplitude[RowN + 1:RowN + 9]
                         Amps = abs(Amps - ClickAmp)
                         DiffCPSs = abs(ClickCPS - CPSs)
                         DiffCPSs = pd.DataFrame(DiffCPSs)
@@ -271,14 +271,14 @@ def ExtractPatterns(myCP, myFs, lat, long):
 
                     RowsToKeep = np.unique(RowsToKeep)
                     RowsToKeep = np.delete(RowsToKeep, np.where(RowsToKeep <= 0))
-                    RowsToKeep = np.delete(RowsToKeep, np.where(RowsToKeep > len(CTTemp) - 1))
+                    RowsToKeep = np.delete(RowsToKeep, np.where(RowsToKeep > len(CT) - 1))
 
                     if len(RowsToKeep) > 0:
-                        NewCT = CTTemp.iloc[RowsToKeep]
+                        NewCT = CT.iloc[RowsToKeep]
                         NewCT.reset_index(inplace=True, drop=True)
                         NewCT = NewICI(NewCT, myFs)
             else:
-                NewCT = CTTemp.copy()
+                NewCT = CT.copy()
                 NewCT = NewICI(NewCT, myFs)
             # end
         # end
@@ -295,12 +295,12 @@ def ExtractPatterns(myCP, myFs, lat, long):
     return CTrains, myCTInfo, myCP
 
 
-def forceRange(v, max):
+def forceRange(v, maxi):
     # force v to be >= 0 and < max
     if v < 0:
-        return v + max
-    elif v >= max:
-        return v - max
+        return v + maxi
+    elif v >= maxi:
+        return v - maxi
     return v
 
 
@@ -396,7 +396,6 @@ def UpdateWaterfall(XLimMin, YLimMin, ZLimMin, XLimMax, YLimMax, ZLimMax):
 def CTInfoMaker(myCTInfo, myCTTemp, myLat, myLong):  # srise, sset
     # Store in CTInfo
     CTNum = myCTTemp.CT[0]
-    # print(myCTTemp)
     # day/night
     TODAY = myCTTemp.datetime.iloc[0]
     day = int(TODAY[8:10])
@@ -412,7 +411,7 @@ def CTInfoMaker(myCTInfo, myCTTemp, myLat, myLong):  # srise, sset
         DayNight = 'Day'
     else:  # if DATE >= sset and DATE <= srise
         DayNight = 'Night'
-    # end
+
     # Type
     Type = Species(myCTTemp)
     if Type == 'Non-NBHF':
@@ -421,20 +420,17 @@ def CTInfoMaker(myCTInfo, myCTTemp, myLat, myLong):  # srise, sset
         Behav = Behaviour(myCTTemp)
     myCTInfo = myCTInfo.append({'CTNum': CTNum, 'Date': myCTTemp.datetime[0], 'Length': len(myCTTemp), 'Species': Type,
                                 'DayNight': DayNight, 'Behav': Behav, 'Calf': '-', 'Notes': ' '}, ignore_index=True)
-
     return myCTInfo
 
 
-# end
-
-def Species(CTTemp):
-    CFDiff = CTTemp.CF.diff()
-    PercChangeCF = (CFDiff / CTTemp.CF[0:-1 - 1]) * 100
+def Species(CT):
+    CFDiff = CT.CF.diff()
+    PercChangeCF = (CFDiff / CT.CF[0:-1 - 1]) * 100
     MedianPercChangeCF = abs(PercChangeCF).median()
-    SDCF = CTTemp.CF.std()
-    CPSDiff = CTTemp.CPS.diff()
+    SDCF = CT.CF.std()
+    CPSDiff = CT.CPS.diff()
     CPSDiff = CPSDiff.drop([0])
-    PercChange = (CPSDiff / CTTemp.CPS[1:-1 - 1]) * 100
+    PercChange = (CPSDiff / CT.CPS[1:-1 - 1]) * 100
     MedianPercChangeCPS = abs(PercChange[1:-1]).median()
     if len(CTTemp) < 10:
         Type = 'Non-NBHF'
@@ -450,14 +446,12 @@ def Species(CTTemp):
     return Type
 
 
-# end
-
-def Behaviour(CTTemp):
-    CFDiff = CTTemp.CF.diff()
-    PercChangeCF = (CFDiff / CTTemp.CF[0:-1 - 1]) * 100
-    MeanPF = CTTemp.CF.mean()
+def Behaviour(CT):
+    CFDiff = CT.CF.diff()
+    PercChangeCF = (CFDiff / CT.CF[0:-1 - 1]) * 100
+    MeanPF = CT.CF.mean()
     MeanPercChangeCF = abs(PercChangeCF).mean()
-    CPS = CTTemp.CPS
+    CPS = CT.CPS
     MedianCPS = CPS.median()
     L = len(CPS)
     SortedCPS = CPS.values.copy()
@@ -535,16 +529,22 @@ class Ui_MainWindow(object):
     """
 
     def __init__(self):
+        self.font = QtGui.QFont()
 
+        self.Fig3D = WinTable()
+        self.Pan3D = QtWidgets.QFrame(self.Fig3D)
+        self.Plot3D = gl.GLViewWidget(self.Pan3D)
+
+        self.font2 = QtGui.QFont()
         self.SummaryTable = None
         self.menubar = QtWidgets.QMenuBar(MainWindow)
         self.menuHelp = QtWidgets.QMenu(self.menubar)
         self.menuDownloads = QtWidgets.QMenu(self.menubar)
         self.menuClick_Trains = QtWidgets.QMenu(self.menubar)
-        self.menuMetrics_Display = QtWidgets.QMenu(self.menubar)
+        # self.menuMetrics_Display = QtWidgets.QMenu(self.menubar)
         self.menuMain_Display = QtWidgets.QMenu(self.menubar)
 
-        self.MenuSetPorCC = QtWidgets.QAction(MainWindow)
+        # self.MenuSetPorCC = QtWidgets.QAction(MainWindow)
         self.MenuSetDetector = QtWidgets.QAction(MainWindow)
         self.MenuOpenCT = QtWidgets.QAction(MainWindow)
         self.MenuNewCT = QtWidgets.QAction(MainWindow)
@@ -558,6 +558,10 @@ class Ui_MainWindow(object):
         self.MetricsDisplayTab = QtWidgets.QWidget()
         self.MetricsDisplayPan = QtWidgets.QFrame(self.MetricsDisplayTab)
         self.SummaryPan = QtWidgets.QFrame(self.MetricsDisplayTab)
+        self.CPMAxesMetrics = pg.PlotWidget(self.SummaryPan)
+        self.CPMAxesTot = pg.PlotWidget(self.SummaryPan)
+        self.CPMAxesTimes = pg.PlotWidget(self.SummaryPan)
+
         self.MetricsTablePan = QtWidgets.QFrame(self.MetricsDisplayTab)
         self.MetricsUploadPan = QtWidgets.QFrame(self.MetricsDisplayTab)
         self.UploadData = QtWidgets.QPushButton(self.MetricsUploadPan)
@@ -662,24 +666,87 @@ class Ui_MainWindow(object):
         self.ProjectTab = QtWidgets.QWidget()
         self.ProjectPan = QtWidgets.QFrame(self.ProjectTab)
         self.FolderPathDet = QtWidgets.QLineEdit(self.ProjectPan)
+        self.DefaultBut = QtWidgets.QPushButton(self.ProjectPan)
+        self.LengthFileEdit = QtWidgets.QLineEdit(self.ProjectPan)
+        self.LengthFileSave = QtWidgets.QLabel(self.ProjectPan)
+        self.SelectFolderTextSave = QtWidgets.QLabel(self.ProjectPan)
+        self.BrowseDet = QtWidgets.QPushButton(self.ProjectPan)
+        self.ZipMode = QtWidgets.QCheckBox(self.ProjectPan)
+        self.CheckAllFolders = QtWidgets.QCheckBox(self.ProjectPan)
 
         self.HydTab = QtWidgets.QWidget()
+
         self.HydPan = QtWidgets.QFrame(self.HydTab)
+        self.ChannelLab = QtWidgets.QLabel(self.HydPan)
+        self.SerialNoEdit = QtWidgets.QLineEdit(self.HydPan)
+        self.SerialNoLab = QtWidgets.QLabel(self.HydPan)
+        self.DataTypeLbl = QtWidgets.QLabel(self.HydPan)
+        self.DataTypeDD = QtGui.QComboBox(self.HydPan)
+        self.HydParLbl = QtWidgets.QLabel(self.HydPan)
+        self.DAQppEdit = QtWidgets.QLineEdit(self.HydPan)
+        self.DAQLab = QtWidgets.QLabel(self.HydPan)
+        self.GainEditDet = QtWidgets.QLineEdit(self.HydPan)
+        self.GainLab1 = QtWidgets.QLabel(self.HydPan)
+        self.SensEditDet = QtWidgets.QLineEdit(self.HydPan)
+        self.SenLabel = QtWidgets.QLabel(self.HydPan)
+        self.EditHydNDet = QtWidgets.QLineEdit(self.HydPan)
 
         self.PorCCTab = QtWidgets.QWidget()
         self.PorCCPantab = QtWidgets.QFrame(self.PorCCTab)
+        self.HQThresDet = QtWidgets.QLineEdit(self.PorCCPantab)
+        self.ProbHQLab = QtWidgets.QLabel(self.PorCCPantab)
+        self.LQThresDet = QtWidgets.QLineEdit(self.PorCCPantab)
+        self.LQThresLab = QtWidgets.QLabel(self.PorCCPantab)
+        self.PorCCLbl = QtWidgets.QLabel(self.PorCCPantab)
+        self.MinSepEd = QtWidgets.QLineEdit(self.PorCCPantab)
+        self.MinSepLbl = QtWidgets.QLabel(self.PorCCPantab)
+        self.MinLengthEd = QtWidgets.QLineEdit(self.PorCCPantab)
+        self.MinLengthLbl = QtWidgets.QLabel(self.PorCCPantab)
+        self.MaxLengthEd = QtWidgets.QLineEdit(self.PorCCPantab)
+        self.MaxLengthLbl = QtWidgets.QLabel(self.PorCCPantab)
+        self.PostSampEd = QtWidgets.QLineEdit(self.PorCCPantab)
+        self.PostSampLbl = QtWidgets.QLabel(self.PorCCPantab)
+        self.PreSampEd = QtWidgets.QLineEdit(self.PorCCPantab)
+        self.ClicksLab = QtWidgets.QLabel(self.PorCCPantab)
+        self.PreSampLbl = QtWidgets.QLabel(self.PorCCPantab)
+
         self.DetectorTab = QtWidgets.QWidget()
         self.DetPan = QtWidgets.QFrame(self.DetectorTab)
+        self.PreFiltFreq = QtWidgets.QLineEdit(self.DetPan)
+        self.PreFiltLbl2 = QtWidgets.QLabel(self.DetPan)
+        self.PreFiltPole = QtWidgets.QLineEdit(self.DetPan)
+        self.PreFiltPoleLbl = QtWidgets.QLabel(self.DetPan)
+        self.PreFiltDD = QtWidgets.QComboBox(self.DetPan)
+        self.PreFiltDDLbl = QtWidgets.QLabel(self.DetPan)
+        self.PreFiltLbl = QtWidgets.QLabel(self.DetPan)
+        self.DetThreshold = QtWidgets.QLineEdit(self.DetPan)
+        self.DetThresLbl = QtWidgets.QLabel(self.DetPan)
+        self.MaxFreqEd = QtWidgets.QLineEdit(self.DetPan)
+        self.MaxFreqLbl = QtWidgets.QLabel(self.DetPan)
+        self.MinFreqEd = QtWidgets.QLineEdit(self.DetPan)
+        self.MinFreqLbl = QtWidgets.QLabel(self.DetPan)
+        self.TriggerFilLbl = QtWidgets.QLabel(self.DetPan)
+        self.LongFiltEdit2 = QtWidgets.QLineEdit(self.DetPan)
+        self.LongFiltLbl2 = QtWidgets.QLabel(self.DetPan)
+        self.LongFiltEdit = QtWidgets.QLineEdit(self.DetPan)
+        self.LongFiltLbl = QtWidgets.QLabel(self.DetPan)
+        self.ShortFiltEdit = QtWidgets.QLineEdit(self.DetPan)
+        self.ShortFiltLbl = QtWidgets.QLabel(self.DetPan)
+        self.DetectorLbl = QtWidgets.QLabel(self.DetPan)
+        self.CheckClassify = QtWidgets.QCheckBox(self.DetPan)
 
         # PorCC menu
         self.MenuPorCCF = WinTable()
+
         self.PorCCSetPan = QtWidgets.QFrame(self.MenuPorCCF)
         self.BrowsePorCC = QtWidgets.QPushButton(self.PorCCSetPan)
         self.DataTypeLabel = QtWidgets.QLabel(self.PorCCSetPan)
         self.FileDD = QtGui.QComboBox(self.PorCCSetPan)
         self.FolderPathPorCC = QtWidgets.QLineEdit(self.PorCCSetPan)
-
+        self.SelectFolderText = QtWidgets.QLabel(self.PorCCSetPan)
         self.ParPanPorCC = QtWidgets.QFrame(self.PorCCSetPan)
+        self.ProbPan = QtWidgets.QFrame(self.PorCCSetPan)
+
         self.dBLab = QtWidgets.QLabel(self.ParPanPorCC)
         self.SensEdit = QtWidgets.QLineEdit(self.ParPanPorCC)
         self.SensLab = QtWidgets.QLabel(self.ParPanPorCC)
@@ -691,8 +758,10 @@ class Ui_MainWindow(object):
         self.SFreqLab = QtWidgets.QLabel(self.ParPanPorCC)
         self.EditHydN = QtWidgets.QLineEdit(self.ParPanPorCC)
         self.HydLabel = QtWidgets.QLabel(self.ParPanPorCC)
+        self.DAQEditPorCC = QtWidgets.QLineEdit(self.ParPanPorCC)
+        self.DAQLabPorCC = QtWidgets.QLabel(self.ParPanPorCC)
 
-        self.ProbPan = QtWidgets.QFrame(self.PorCCSetPan)
+
         self.LQLab = QtWidgets.QLabel(self.ProbPan)
         self.LQThres = QtWidgets.QLineEdit(self.ProbPan)
         self.LQ = QtWidgets.QLabel(self.ProbPan)
@@ -722,12 +791,22 @@ class Ui_MainWindow(object):
         self.OpenCTPan = QtWidgets.QFrame(self.OpenCTFig)
         self.OpenCTCancelButton = QtWidgets.QPushButton(self.OpenCTPan)
         self.OpenCTButton = QtWidgets.QPushButton(self.OpenCTPan)
-        self.BrowseButtonOpen = QtWidgets.QPushButton(self.OpenCTPan)
-        self.FolderPathOpenCT = QtWidgets.QLineEdit(self.OpenCTPan)
+
+
         self.SelectFolderText1 = QtWidgets.QLabel(self.OpenCTPan)
 
         self.SpectWindow = WinTable()
+
         self.SpecPan = QtWidgets.QFrame(self.SpectWindow)
+        self.UpdateSpec = QtWidgets.QPushButton(self.SpecPan)
+        self.OverSpecLbl = QtWidgets.QLabel(self.SpecPan)
+        self.OverSpec = QtWidgets.QLineEdit(self.SpecPan)
+        self.FFTSpecLbl = QtWidgets.QLabel(self.SpecPan)
+        self.FFTSpec = QtWidgets.QLineEdit(self.SpecPan)
+        self.SpecLbl = QtWidgets.QLabel(self.SpecPan)
+        self.SpectAxes = pg.ImageView(self.SpecPan)
+        self.WaveformLbl = QtWidgets.QLabel(self.SpecPan)
+        self.WaveformSpec = pg.PlotWidget(self.SpecPan)
         # self.SpectAxes = pg.PlotWidget(self.SpecPan)
 
         self.NotesFig = WinTable()
@@ -747,56 +826,13 @@ class Ui_MainWindow(object):
         MainWindow.resize(1700, 950)
         MainWindow.setMinimumSize(QtCore.QSize(1600, 950))
         MainWindow.setMaximumSize(QtCore.QSize(1600, 950))
-        """
-        VARIABLES
-        """
-        # TODO define all the global variables I will need
-        # CTInfo = []  # Table with info on all click trains
-        # SelectedFolder = []
-        # #self.ClickParFile = 'C:\Users\' #Click Parameters file location NumCT = 1 #Click train number
-        # MetricSelectedFolder = [] FoldersIn = [] DropDownDay = [] # Dropdown of all days for metrics PosPorMin = []
-        # Positive Porpoise Minute FolderToOpen = [] CTTemp = [] #Temporary click train Fs = [] #Sampling frequency
-        # Gain = [] #Gain of the hydrophone HydSens = [] #Hydrophone sensitivity (dB) ThresHQ = [] #Threshold for HQ
-        # ThresLQ = [] #Threshold for LQ HydN = 1 #Number of Hydrophones DAQp = [] #Clipping level of DAQ card ##
-        # Coefficients Log Reg Model 1 = Q(rms) duration (80%) logitCoefHQ = [-12.857529903901488,1.480233893649301,
-        # -0.037748903932102] # Coefficients for Model 2 (LQ) logitCoefLQ = [4.359888452493062,0.873710953710921,
-        # -0.017386257791731,-6.901099488779461,35.272929893479020,-1.443845172568886e-05,-0.142569799845068] # Click
-        # model for cross correlation click_model = [0.00336253736901471,0.00336253736901471,-0.0201752242140883, 0,
-        # 0.0437129857971912,-0.0302628363211324,-0.0672507473802942,0.114326270546500,0.0336253736901471,
-        # -0.201752242140883,0.0941510463324119,0.211839854247927,-0.238740153200044,-0.124413882653544,
-        # 0.346341349008515,-0.0235377615831030,-0.359791498484574,0.171489405819750,0.302628363211324,
-        # -0.272365526890192,-0.228652541093000,0.353066423746545,0.137864032129603,-0.396779409543736,
-        # -0.0403504484281765,0.413592096388809,-0.0538005979042354,-0.427042245864868,0.178214480557780,
-        # 0.386691797436692,-0.299265825842309,-0.285815676366250,0.393416872174721,0.137864032129603,
-        # -0.400141946912750,0.00336253736901471,0.346341349008515,-0.121051345284530,-0.232015078462015,
-        # 0.147951644236647,0.134501494760588,-0.141226569498618,-0.0605256726422648,0.104238658439456,
-        # 0.0302628363211324,-0.0672507473802942,-0.0269002989521177,0.0504380605352207,0.0437129857971912,
-        # -0.0807008968563530,-0.00672507473802942,0.0773383594873383,-0.0201752242140883,-0.0638882100112795,
-        # 0.0504380605352207,0.0369879110591618,-0.0672507473802942,-0.0100876121070441,0.0706132847493089,
-        # -0.0168126868450736,-0.0571631352732501,0.0235377615831030,0.0538005979042354,-0.0470755231662059,
-        # -0.0403504484281765,0.0504380605352207,0.0269002989521177,-0.0571631352732501,-0.0100876121070441,
-        # 0.0605256726422648,-0.00336253736901471,-0.0437129857971912,0.0201752242140883,0.0235377615831030,
-        # -0.0168126868450736,-0.0100876121070441,0.00336253736901471,0,0.0168126868450736,-0.0134501494760588,
-        # -0.0269002989521177,0.0336253736901471,0.0302628363211324,-0.0571631352732501,-0.0134501494760588,
-        # 0.0807008968563530,-0.0168126868450736,-0.0807008968563530,0.0538005979042354,0.0605256726422648,
-        # -0.0773383594873383,-0.0269002989521177,0.0840634342253677,-0.0100876121070441,-0.0739758221183236,
-        # 0.0369879110591618,0.0470755231662059,-0.0470755231662059,-0.0168126868450736,0.0403504484281765,0,
-        # -0.0269002989521177,0.00672507473802942,0.0134501494760588,-0.00672507473802942,0,0,0,0,0,0,0,0,0,0,0,0,0,
-        # 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-        # 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-        # 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-        # 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-        # 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-        # 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-        # 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-        # 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
 
         ###########################################################
         # MAIN TABS
         ###########################################################
         self.centralwidget.setObjectName("centralwidget")
         self.MainTab.setGeometry(QtCore.QRect(0, 0, 1422, 888))
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
+        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.MainTab.sizePolicy().hasHeightForWidth())
@@ -807,6 +843,7 @@ class Ui_MainWindow(object):
         self.MainTab.setObjectName("MainTab")
         self.MainDisplayTab.setObjectName("MainDisplayTab")
 
+
         ####################
         # DISPLAY PARAMETERS
         ####################
@@ -814,7 +851,7 @@ class Ui_MainWindow(object):
         self.font.setBold(True)
         self.font.setWeight(75)
         self.DisplaySettings.setGeometry(QtCore.QRect(10, 15, 1570, 122))
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
+        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.DisplaySettings.sizePolicy().hasHeightForWidth())
@@ -824,7 +861,7 @@ class Ui_MainWindow(object):
         self.DisplaySettings.setObjectName("DisplaySettings")
         # Date area
         self.DatePan.setGeometry(QtCore.QRect(10, 8, 250, 106))
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
+        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.DatePan.sizePolicy().hasHeightForWidth())
@@ -1012,7 +1049,6 @@ class Ui_MainWindow(object):
         self.IndCTLabel.setAlignment(QtCore.Qt.AlignCenter)
         self.IndCTLabel.setObjectName("IndCTLabel")
         self.IndClicksAnd3D.setGeometry(QtCore.QRect(30, 60, 260, 62))
-        self.font2 = QtGui.QFont()
         self.font2.setBold(False)
         self.font2.setWeight(50)
         # Click train in 3D
@@ -1128,13 +1164,10 @@ class Ui_MainWindow(object):
         self.SummaryPan.setFrameShape(QtWidgets.QFrame.Box)
         self.SummaryPan.setFrameShadow(QtWidgets.QFrame.Raised)
         self.SummaryPan.setObjectName("SummaryPan")
-        self.CPMAxesTimes = pg.PlotWidget(self.SummaryPan)
         self.CPMAxesTimes.setGeometry(10, 10, 480, 680)
         self.CPMAxesTimes.setVisible(False)
-        self.CPMAxesTot = pg.PlotWidget(self.SummaryPan)
         self.CPMAxesTot.setGeometry(500, 10, 480, 680)
         self.CPMAxesTot.setVisible(False)
-        self.CPMAxesMetrics = pg.PlotWidget(self.SummaryPan)
         self.CPMAxesMetrics.setGeometry(10, 10, 980, 680)
         self.MetricsDisplayPan.setGeometry(QtCore.QRect(580, 8, 1000, 122))
         self.MetricsDisplayPan.setFrameShape(QtWidgets.QFrame.Box)
@@ -1204,7 +1237,7 @@ class Ui_MainWindow(object):
         self.menubar.setGeometry(QtCore.QRect(0, 0, 1422, 18))
         self.menubar.setObjectName("menubar")
         self.menuMain_Display.setObjectName("menuMain_Display")
-        self.menuMetrics_Display.setObjectName("menuMetrics_Display")
+        # self.menuMetrics_Display.setObjectName("menuMetrics_Display")
         # Click trains menu
         self.menuClick_Trains.setObjectName("menuClick_Trains")
         self.MenuNewCT.setObjectName("MenuNewCT")
@@ -1214,14 +1247,14 @@ class Ui_MainWindow(object):
         self.menuHelp.setObjectName("menuHelp")
         MainWindow.setMenuBar(self.menubar)
         self.MenuSetDetector.setObjectName("MenuSetDetector")
-        self.MenuSetPorCC.setObjectName("MenuSetPorCC")
+        # self.MenuSetPorCC.setObjectName("MenuSetPorCC")
         self.menuMain_Display.addSeparator()
         self.menuMain_Display.addAction(self.MenuSetDetector)
-        self.menuMetrics_Display.addAction(self.MenuSetPorCC)
+        # self.menuMetrics_Display.addAction(self.MenuSetPorCC)
         self.menuClick_Trains.addAction(self.MenuNewCT)
         self.menuClick_Trains.addAction(self.MenuOpenCT)
         self.menubar.addAction(self.menuMain_Display.menuAction())
-        self.menubar.addAction(self.menuMetrics_Display.menuAction())
+        # self.menubar.addAction(self.menuMetrics_Display.menuAction())
         self.menubar.addAction(self.menuClick_Trains.menuAction())
         self.menubar.addAction(self.menuDownloads.menuAction())
         self.menubar.addAction(self.menuHelp.menuAction())
@@ -1231,30 +1264,12 @@ class Ui_MainWindow(object):
 
         self.MenuOpenCT.triggered.connect(lambda: self.OpenCTMenu())
         self.MenuNewCT.triggered.connect(lambda: self.NewCTMenu())
-        self.MenuSetPorCC.triggered.connect(lambda: self.OpenPorCCSetMenu())
+        # self.MenuSetPorCC.triggered.connect(lambda: self.OpenPorCCSetMenu())
         self.MenuSetDetector.triggered.connect(lambda: self.OpenDetSetMenu())
 
     """
     FUNCTIONS
     """
-
-    def PushApplyButton(self):
-        global HydN
-        # Apply the values in order to run PorCC with these
-        fs = int(self.FsEdit.text()) * 1000
-        HydSens = int(self.SensEdit.text())
-        Gain = int(self.GainEdit.text())
-        ThresHQ = int(self.HQThres.text())
-        ThresLQ = int(self.LQThres.text())
-        HydN = int(self.EditHydN.text())
-        DAQpp = int(self.DAQppEdit.text())
-        self.SelectedFolder = self.FolderPathPorCC.Text()
-        # Message = ['D-PorCCA will get to work as soon as you click the Run Classifier button'...
-        #            'A message will pop up when it is ready.']
-        # uialert(UIFigure, Message, 'Running PorCC', 'Icon', 'warning')
-        # # DataType = FileDD.Items.Value
-        # end
-
     def PushPorCCButton(self):
         pass
         # self.MenuPorCCF.close()
@@ -1803,12 +1818,12 @@ class Ui_MainWindow(object):
         self.MainTab.setTabText(self.MainTab.indexOf(self.MetricsDisplayTab), _translate("MainWindow", "Metrics"))
         self.MainTab.setTabText(self.MainTab.indexOf(self.TableDisplayTab), _translate("MainWindow", "Tables"))
         self.menuMain_Display.setTitle(_translate("MainWindow", "Detector"))
-        self.menuMetrics_Display.setTitle(_translate("MainWindow", "PorCC"))
+        # self.menuMetrics_Display.setTitle(_translate("MainWindow", "PorCC"))
         self.menuClick_Trains.setTitle(_translate("MainWindow", "Click Trains"))
         self.menuDownloads.setTitle(_translate("MainWindow", "Downloads"))
         self.menuHelp.setTitle(_translate("MainWindow", "Help"))
         self.MenuSetDetector.setText(_translate("MainWindow", "Settings Detector"))
-        self.MenuSetPorCC.setText(_translate("MainWindow", "Settings PorCC"))
+        # self.MenuSetPorCC.setText(_translate("MainWindow", "Settings PorCC"))
         self.MenuNewCT.setText(_translate("MainWindow", "New CT Project"))
         self.MenuOpenCT.setText(_translate("MainWindow", "Open existing project"))
         item = self.MetricsTable.horizontalHeaderItem(0)
@@ -1867,7 +1882,7 @@ class Ui_MainWindow(object):
             # print(NumCT)
             self.UpdateCT(NumCT, CP, CTInfo)
 
-    def UpdateCT(self, NumCT, Cp, CTInfo):
+    def UpdateCT(self, NumCT, Cp, myCTInfo):
         global CTTemp
         CTTemp = Cp[Cp.CT == NumCT]
         # print(CTTemp)
@@ -1885,13 +1900,13 @@ class Ui_MainWindow(object):
             CT1HQ = CTTemp[CTTemp['pyPorCC'] == 1]
             CT1LQ = CTTemp[CTTemp['pyPorCC'] == 2]
             self.CTNumD.setText(str(NumCT))
-            self.CTTypeLabel.setText(str(CTInfo.Species[CTInfo.CTNum == NumCT].values[0]))
-            self.DateandtimeofCTLabel.setText(str(CTInfo.Date[CTInfo.CTNum == NumCT].values[0]))
+            self.CTTypeLabel.setText(str(myCTInfo.Species[myCTInfo.CTNum == NumCT].values[0]))
+            self.DateandtimeofCTLabel.setText(str(myCTInfo.Date[myCTInfo.CTNum == NumCT].values[0]))
             self.LengthLabel.setText(str(len(CTTemp)))
-            self.BehavLabel.setText(str(CTInfo.Behav[CTInfo.CTNum == NumCT].values[0]))
-            self.CalfLabel.setText(str(CTInfo.Calf[CTInfo.CTNum == NumCT].values[0]))
-            self.TotalLabel.setText('(' + str(CTInfo['CTNum'].iloc[-1]) + ')')
-            self.DayLabel.setText(str(CTInfo.DayNight[CTInfo.CTNum == NumCT].values[0]))
+            self.BehavLabel.setText(str(myCTInfo.Behav[myCTInfo.CTNum == NumCT].values[0]))
+            self.CalfLabel.setText(str(myCTInfo.Calf[myCTInfo.CTNum == NumCT].values[0]))
+            self.TotalLabel.setText('(' + str(myCTInfo['CTNum'].iloc[-1]) + ')')
+            self.DayLabel.setText(str(myCTInfo.DayNight[myCTInfo.CTNum == NumCT].values[0]))
             # if CTInfo["Saved"][[CTInfo.CTNum] == NumCT] == 1:
             #    SelectedCTCheckBox.Value = 1
 
@@ -1973,10 +1988,11 @@ class Ui_MainWindow(object):
         self.PanNotes.setGeometry(10, 10, 380, 480)
         # Label with information about the click train itself
         self.NotesCTLabel = QtWidgets.QLabel(self.PanNotes)
+        self.NotesCTLabel2 = QtWidgets.QLabel(self.PanNotes)
         self.NotesCTLabel.setText('Date: ' + str(CTInfo.Date[CTInfo.CTNum == CTNum].values[0]))
         self.NotesCTLabel.setGeometry(20, 15, 250, 30)
-        self.NotesCTLabel.setText('Click train: ' + str(CTNum))
-        self.NotesCTLabel.setGeometry(20, 50, 150, 30)
+        self.NotesCTLabel2.setText('Click train: ' + str(CTNum))
+        self.NotesCTLabel2.setGeometry(20, 50, 150, 30)
         # Create panel within figure
         self.NotesText.setGeometry(10, 100, 360, 330)
         self.NotesText.setText(Notes)
@@ -2002,13 +2018,10 @@ class Ui_MainWindow(object):
         x1 = []
         y1 = []
         z1 = []
-        self.Fig3D = WinTable()
         self.Fig3D.setGeometry(50, 50, 1200, 800)
         self.Fig3D.setWindowTitle('Click train in 3D')
-        self.Pan3D = QtWidgets.QFrame(self.Fig3D)
         self.Pan3D.setFrameShape(QtWidgets.QFrame.StyledPanel)
         self.Pan3D.setGeometry(10, 10, 1180, 780)
-        self.Plot3D = gl.GLViewWidget(self.Pan3D)
         self.Plot3D.setGeometry(600, 300, 570, 460)
 
         ## WATERFALL PLOT
@@ -2018,13 +2031,13 @@ class Ui_MainWindow(object):
             CTTemp.iciSum[i] = CTTemp.ICI[i] + CTTemp.iciSum[i - 1]
         WavFileToOpen = CTTemp.filename[0]
 
-        ## CREATE empty x, y, and z for the waterfall plot
+        # CREATE empty x, y, and z for the waterfall plot
         z1 = np.zeros((257, len(CTTemp)), dtype=float)  # power of each click in each row
 
-        ## FILL the variables
+        # FILL the variables
         # X = frequency
-        click1, Fs = soundfile.read(WavFileToOpen, start=1, stop=150)
-        freqs, psd = signal.welch(click1, fs=Fs, window='hann', nfft=512)
+        click1, fs = soundfile.read(WavFileToOpen, start=1, stop=150)
+        freqs, psd = signal.welch(click1, fs=fs, window='hann', nfft=512)
         x1 = freqs / 1000
         # x1.to_numpy()
         # Y = time( in secs)
@@ -2032,7 +2045,7 @@ class Ui_MainWindow(object):
         y1 = y1 / 1000
         # y1 = y1.T
 
-        ## Normalised Amplitude
+        # Normalised Amplitude
         for i in range(0, len(CTTemp)):
             Start = CTTemp.start_sample[i]
             End = Start + CTTemp.duration_samples[i]
@@ -2073,36 +2086,27 @@ class Ui_MainWindow(object):
         self.Plot3D.show()
 
     def CreateSpectrogram(self):
-        global CTTemp, Fs, Name, FileToOpen
+        global CTTemp, Fs
         self.SpectWindow.setGeometry(200, 200, 1000, 600)
         self.SpectWindow.setWindowTitle('Spectrogram')
         # Create panel within figure
         self.SpecPan.setFrameShape(QtWidgets.QFrame.StyledPanel)
         self.SpecPan.setGeometry(10, 10, 980, 580)
         # where the plot will be
-        self.WaveformSpec = pg.PlotWidget(self.SpecPan)
         self.WaveformSpec.setGeometry(160, 20, 800, 250)
-        self.WaveformLbl = QtWidgets.QLabel(self.SpecPan)
         self.WaveformLbl.setGeometry(200, 0, 150, 20)
         self.WaveformLbl.setText('Waveform')
-        self.SpectAxes = pg.ImageView(self.SpecPan)
         self.SpectAxes.setGeometry(QtCore.QRect(160, 300, 800, 250))
-        self.SpecLbl = QtWidgets.QLabel(self.SpecPan)
         self.SpecLbl.setGeometry(200, 270, 150, 20)
         self.SpecLbl.setText('Spectrogram')
-        self.FFTSpec = QtWidgets.QLineEdit(self.SpecPan)
         self.FFTSpec.setGeometry(90, 300, 50, 30)
         self.FFTSpec.setText('512')
-        self.FFTSpecLbl = QtWidgets.QLabel(self.SpecPan)
         self.FFTSpecLbl.setGeometry(20, 300, 60, 30)
         self.FFTSpecLbl.setText('FFT')
-        self.OverSpec = QtWidgets.QLineEdit(self.SpecPan)
         self.OverSpec.setGeometry(90, 340, 50, 30)
         self.OverSpec.setText('128')
-        self.OverSpecLbl = QtWidgets.QLabel(self.SpecPan)
         self.OverSpecLbl.setGeometry(20, 340, 60, 30)
         self.OverSpecLbl.setText('Overlap')
-        self.UpdateSpec = QtWidgets.QPushButton(self.SpecPan)
         self.UpdateSpec.setGeometry(20, 390, 120, 40)
         self.UpdateSpec.setText('Update')
         self.UpdateSpec.clicked.connect(self.UpdateSpect)
@@ -2122,13 +2126,13 @@ class Ui_MainWindow(object):
         Duration = len(Signal) / Fs
         t = np.arange(0.0, Duration, 1 / Fs)
         NFFT = int(self.FFTSpec.text())  # length of the windowing segments
-        Overlap = int(self.OverSpec.text())
+        Overlap = 128  # int(self.OverSpec.text())
         self.WaveformSpec.plot(t, self.FiltSig)
-        window = signal.get_window('hann', NFFT)
+        # window = signal.get_window('hann', NFFT)
 
         fig, (ax1, ax2) = plt.subplots(nrows=2, sharex=True)
         ax1.plot(t, self.FiltSig)
-        Pxx, freqs, bins, im = ax2.specgram(self.FiltSig, NFFT=NFFT, Fs=Fs, noverlap=128)  # , cmap='jet')
+        Pxx, freqs, bins, im = ax2.specgram(self.FiltSig, NFFT=NFFT, Fs=Fs, noverlap=Overlap)  # , cmap='jet')
         ax1.grid(False)
         ax2.grid(False)
         # ax1.ylabel('Amplitude')
@@ -2138,13 +2142,10 @@ class Ui_MainWindow(object):
         # ax2.title('Spectrogram')
         plt.show()
 
-        # freq, t, Pxx = signal.spectrogram(self.FiltSig, fs=Fs, nfft=NFFT, window=window, scaling='density', noverlap=Overlap)
-        # Pxx = 10*np.log10(Pxx**2)
-        # self.SpectAxes.setImage(Pxx.T, autoRange=False, scale=(100, 600))
-        # ColorMap = pg.ColorMap(pos=[0, 0.25, 0.5, 0.75, 1], color=[(0, 0, 255), (200, 255, 255), (100, 255, 150),
-        #                                                            (255, 255, 0), (255, 0, 100)])
-        # self.SpectAxes.setColorMap(ColorMap)
-        # self.SpectWindow.show()
+        # freq, t, Pxx = signal.spectrogram(self.FiltSig, fs=Fs, nfft=NFFT, window=window, scaling='density',
+        # noverlap=Overlap) Pxx = 10*np.log10(Pxx**2) self.SpectAxes.setImage(Pxx.T, autoRange=False, scale=(100,
+        # 600)) ColorMap = pg.ColorMap(pos=[0, 0.25, 0.5, 0.75, 1], color=[(0, 0, 255), (200, 255, 255), (100, 255,
+        # 150), (255, 255, 0), (255, 0, 100)]) self.SpectAxes.setColorMap(ColorMap) self.SpectWindow.show()
 
     def UpdateSpect(self):
         NFFT = int(self.FFTSpec.text())  # length of the windowing segments
@@ -2196,113 +2197,113 @@ class Ui_MainWindow(object):
     """
 
     def OpenPorCCSetMenu(self):
-        self.MenuPorCCF.setGeometry(200, 200, 360, 550)
-        self.MenuPorCCF.setWindowTitle('PorCC Settings')
-        # Create panel within figure
-        self.PorCCSetPan.setFrameShape(QtWidgets.QFrame.StyledPanel)
-        self.PorCCSetPan.setGeometry(10, 10, 340, 530)
-        self.SelectFolderText = QtWidgets.QLabel(self.PorCCSetPan)
-        self.SelectFolderText.setGeometry(20, 10, 100, 30)
-        self.SelectFolderText.setText('Select Folder')
-        # Edit path
-        self.FolderPathPorCC.setGeometry(20, 40, 300, 30)
-        self.FolderPathPorCC.setText('C://')
-        # Dropdown
-        self.FileDD.setGeometry(150, 75, 170, 30)
-        self.FileDD.addItem("PAMGuard output")
-        self.FileDD.addItem("SoundTrap output")
-        #   self.FileDD.activated[str].connect(self.style_choice)
-        self.DataTypeLabel.setGeometry(20, 75, 100, 30)
-        self.DataTypeLabel.setText('Data type')
-        # browse
-        self.BrowsePorCC.setGeometry(220, 115, 100, 30)
-        self.BrowsePorCC.setText('Browse')
-        self.BrowsePorCC.clicked.connect(self.BrowseButtonPorCC)
-
-        # PARAMETERS PANEL
-        self.ParPanPorCC.setGeometry(10, 160, 320, 170)
-        self.ParPanPorCC.setFrameShape(QtWidgets.QFrame.StyledPanel)
-        # HydrophoneS section
-        self.HydLabel.setText('Number of Hydrophones')
-        self.HydLabel.setGeometry(10, 10, 180, 25)
-        self.EditHydN.setGeometry(210, 10, 50, 25)
-        self.EditHydN.setText("1")
-        # Sampling Frequency
-        self.SFreqLab.setText('Sampling Frequency')
-        self.SFreqLab.setGeometry(10, 40, 180, 25)
-        self.FsEdit.setText('576')
-        self.FsEdit.setGeometry(210, 40, 50, 25)
-        self.kHzLab.setText('kHz')
-        self.kHzLab.setGeometry(270, 40, 30, 25)
-        # Sensitivity
-        self.SensLab = QtWidgets.QLabel(self.ParPanPorCC)
-        self.SensLab.setText('Hyd Sensitivity')
-        self.SensLab.setGeometry(10, 70, 180, 25)
-        # self.SensEdit = QtWidgets.QLineEdit(self.ParPanPorCC)
-        self.SensEdit.setText('-172')
-        self.SensEdit.setGeometry(210, 70, 50, 25)
-        self.dBLab = QtWidgets.QLabel(self.ParPanPorCC)
-        self.dBLab.setText('dB')
-        self.dBLab.setGeometry(270, 70, 30, 25)
-        # Gain
-        self.GainLab.setText('Gain')
-        self.GainLab.setGeometry(10, 100, 180, 25)
-        self.GainEdit.setText('0')
-        self.GainEdit.setGeometry(210, 100, 50, 25)
-        self.dBLab2.setText('dB')
-        self.dBLab2.setGeometry(270, 100, 30, 25)
-        # DAQ Peak to Peak (Clipping level)
-        self.DAQLabPorCC = QtWidgets.QLabel(self.ParPanPorCC)
-        self.DAQLabPorCC.setText('DAQ pp Clipping level')
-        self.DAQLabPorCC.setGeometry(10, 130, 180, 25)
-        self.DAQEditPorCC = QtWidgets.QLineEdit(self.ParPanPorCC)
-        self.DAQEditPorCC.setText('2')
-        self.DAQEditPorCC.setGeometry(210, 130, 50, 25)
-        self.dBLab.setText('Volts')
-        self.dBLab.setGeometry(270, 130, 30, 25)
-        # Classifier panel
-        self.ProbPan.setFrameShape(QtWidgets.QFrame.StyledPanel)
-        self.ProbPan.setGeometry(10, 340, 320, 140)
-        # HQ
-        self.HQ.setText('Prob threshold')
-        self.HQ.setGeometry(10, 10, 100, 25)
-        self.HQThres.setText('0.999999')
-        self.HQThres.setGeometry(170, 10, 100, 25)
-        self.HQLab.setText('HQ')
-        self.HQLab.setGeometry(280, 10, 50, 25)
-        # LQ
-        self.LQ.setText('Prob threshold')
-        self.LQ.setGeometry(10, 50, 100, 25)
-        self.LQThres.setText('0.6')
-        self.LQThres.setGeometry(170, 50, 100, 25)
-        self.LQLab.setText('LQ')
-        self.LQLab.setGeometry(280, 50, 50, 25)
-        # Buttons
-        # OK button
-        self.OpenCTButton = QtWidgets.QPushButton(self.PorCCSetPan)
-        self.OpenCTButton.setText('OK')
-        self.OpenCTButton.setGeometry(40, 490, 100, 30)
-        self.OpenCTButton.clicked.connect(self.OKButtonPorCC)
-        # Cancel button
-        self.OpenCTCancelButton = QtWidgets.QPushButton(self.PorCCSetPan)
-        self.OpenCTCancelButton.setText('Cancel')
-        self.OpenCTCancelButton.setGeometry(210, 490, 100, 30)
-        self.OpenCTCancelButton.clicked.connect(self.CancelButtonPorCC)
-        # Disable resize and show menu
-        self.MenuPorCCF.setFixedSize(360, 550)
-        self.MenuPorCCF.show()
+        pass
+        # self.MenuPorCCF.setGeometry(200, 200, 360, 550)
+        # self.MenuPorCCF.setWindowTitle('PorCC Settings')
+        # # Create panel within figure
+        # self.PorCCSetPan.setFrameShape(QtWidgets.QFrame.StyledPanel)
+        # self.PorCCSetPan.setGeometry(10, 10, 340, 530)
+        # self.SelectFolderText.setGeometry(20, 10, 100, 30)
+        # self.SelectFolderText.setText('Select Folder')
+        # # Edit path
+        # self.FolderPathPorCC.setGeometry(20, 40, 300, 30)
+        # self.FolderPathPorCC.setText('C://')
+        # # Dropdown
+        # self.FileDD.setGeometry(150, 75, 170, 30)
+        # self.FileDD.addItem("PAMGuard output")
+        # self.FileDD.addItem("SoundTrap output")
+        # #   self.FileDD.activated[str].connect(self.style_choice)
+        # self.DataTypeLabel.setGeometry(20, 75, 100, 30)
+        # self.DataTypeLabel.setText('Data type')
+        # # browse
+        # self.BrowsePorCC.setGeometry(220, 115, 100, 30)
+        # self.BrowsePorCC.setText('Browse')
+        # self.BrowsePorCC.clicked.connect(self.BrowseButtonPorCC)
+        #
+        # # PARAMETERS PANEL
+        # self.ParPanPorCC.setGeometry(10, 160, 320, 170)
+        # self.ParPanPorCC.setFrameShape(QtWidgets.QFrame.StyledPanel)
+        # # HydrophoneS section
+        # self.HydLabel.setText('Number of Hydrophones')
+        # self.HydLabel.setGeometry(10, 10, 180, 25)
+        # self.EditHydN.setGeometry(210, 10, 50, 25)
+        # self.EditHydN.setText("1")
+        # # Sampling Frequency
+        # self.SFreqLab.setText('Sampling Frequency')
+        # self.SFreqLab.setGeometry(10, 40, 180, 25)
+        # self.FsEdit.setText('576')
+        # self.FsEdit.setGeometry(210, 40, 50, 25)
+        # self.kHzLab.setText('kHz')
+        # self.kHzLab.setGeometry(270, 40, 30, 25)
+        # # Sensitivity
+        # self.SensLab = QtWidgets.QLabel(self.ParPanPorCC)
+        # self.SensLab.setText('Hyd Sensitivity')
+        # self.SensLab.setGeometry(10, 70, 180, 25)
+        # # self.SensEdit = QtWidgets.QLineEdit(self.ParPanPorCC)
+        # self.SensEdit.setText('-172')
+        # self.SensEdit.setGeometry(210, 70, 50, 25)
+        # self.dBLab = QtWidgets.QLabel(self.ParPanPorCC)
+        # self.dBLab.setText('dB')
+        # self.dBLab.setGeometry(270, 70, 30, 25)
+        # # Gain
+        # self.GainLab.setText('Gain')
+        # self.GainLab.setGeometry(10, 100, 180, 25)
+        # self.GainEdit.setText('0')
+        # self.GainEdit.setGeometry(210, 100, 50, 25)
+        # self.dBLab2.setText('dB')
+        # self.dBLab2.setGeometry(270, 100, 30, 25)
+        # # DAQ Peak to Peak (Clipping level)
+        # self.DAQLabPorCC.setText('DAQ pp Clipping level')
+        # self.DAQLabPorCC.setGeometry(10, 130, 180, 25)
+        # self.DAQEditPorCC.setText('2')
+        # self.DAQEditPorCC.setGeometry(210, 130, 50, 25)
+        # self.dBLab.setText('Volts')
+        # self.dBLab.setGeometry(270, 130, 30, 25)
+        # # Classifier panel
+        # self.ProbPan.setFrameShape(QtWidgets.QFrame.StyledPanel)
+        # self.ProbPan.setGeometry(10, 340, 320, 140)
+        # # HQ
+        # self.HQ.setText('Prob threshold')
+        # self.HQ.setGeometry(10, 10, 100, 25)
+        # self.HQThres.setText('0.999999')
+        # self.HQThres.setGeometry(170, 10, 100, 25)
+        # self.HQLab.setText('HQ')
+        # self.HQLab.setGeometry(280, 10, 50, 25)
+        # # LQ
+        # self.LQ.setText('Prob threshold')
+        # self.LQ.setGeometry(10, 50, 100, 25)
+        # self.LQThres.setText('0.6')
+        # self.LQThres.setGeometry(170, 50, 100, 25)
+        # self.LQLab.setText('LQ')
+        # self.LQLab.setGeometry(280, 50, 50, 25)
+        # # Buttons
+        # # OK button
+        # self.OpenCTButton = QtWidgets.QPushButton(self.PorCCSetPan)
+        # self.OpenCTButton.setText('OK')
+        # self.OpenCTButton.setGeometry(40, 490, 100, 30)
+        # self.OpenCTButton.clicked.connect(self.OKButtonPorCC)
+        # # Cancel button
+        # self.OpenCTCancelButton = QtWidgets.QPushButton(self.PorCCSetPan)
+        # self.OpenCTCancelButton.setText('Cancel')
+        # self.OpenCTCancelButton.setGeometry(210, 490, 100, 30)
+        # self.OpenCTCancelButton.clicked.connect(self.CancelButtonPorCC)
+        # # Disable resize and show menu
+        # self.MenuPorCCF.setFixedSize(360, 550)
+        # self.MenuPorCCF.show()
 
     def OKButtonPorCC(self):
-        DataType = self.FileDD.text()
-
-        if DataType == 'SoundTrap output':
-            name = 'SoundTrap'
-            model = 1
-            serial_number = 67416073
-            Vpp = 2
-            hydrophone = pyhy.SoundTrapHF(name, model, serial_number, Vpp)
-            # clicks_df = hydrophone.read_HFclicks(sound_folder_path)
-        # TODO make the OK PorCC function
+        pass
+        # DataType = self.FileDD.text()
+        #
+        # if DataType == 'SoundTrap output':
+        #     name = 'SoundTrap'
+        #     model = 1
+        #     serial_number = 67416073
+        #     Vpp = 2
+        #     hydrophone = pyhy.SoundTrapHF(name, model, serial_number, Vpp)
+        #     # clicks_df = hydrophone.read_HFclicks(sound_folder_path)
+        #
+        # # TODO make the OK PorCC function
 
     def CancelButtonPorCC(self):
         self.MenuPorCCF.close()
@@ -2313,7 +2314,6 @@ class Ui_MainWindow(object):
 
     def OpenDetSetMenu(self):
         # TODO finish the menu
-        self.font = QtGui.QFont()
         self.font.setBold(True)
         # CREATE MENU FIGURE
         self.centralwidgetdet.setObjectName("centralwidgetdet")
@@ -2343,37 +2343,30 @@ class Ui_MainWindow(object):
         self.FolderPathDet.setGeometry(10, 50, 400, 30)
         self.FolderPathDet.setText("C:/")
         # Checkbox
-        self.CheckAllFolders = QtWidgets.QCheckBox(self.ProjectPan)
         self.CheckAllFolders.setGeometry(10, 85, 180, 30)
         self.CheckAllFolders.setText('Include subfolders')
         self.CheckAllFolders.setChecked(True)
         # Checkbox zipfile
-        self.ZipMode = QtWidgets.QCheckBox(self.ProjectPan)
-        self.ZipMode.setGeometry(10, 110, 180, 30)
+        self.ZipMode.setGeometry(10, 115, 180, 30)
         self.ZipMode.setText('Zipped files')
         self.ZipMode.setChecked(False)
         # Browse button
-        self.BrowseDet = QtWidgets.QPushButton(self.ProjectPan)
         self.BrowseDet.setGeometry(300, 85, 110, 30)
         self.BrowseDet.setText("Browse")
         self.BrowseDet.clicked.connect(self.BrowseButtonDet)
 
         # saving
-        self.SelectFolderTextSave = QtWidgets.QLabel(self.ProjectPan)
-        self.SelectFolderTextSave.setGeometry(10, 130, 300, 30)
+        self.SelectFolderTextSave.setGeometry(10, 140, 300, 30)
         self.SelectFolderTextSave.setText('(Files are saved in the same (sub)folder)')
 
         # length files
-        self.LengthFileSave = QtWidgets.QLabel(self.ProjectPan)
-        self.LengthFileSave.setGeometry(10, 180, 220, 30)
+        self.LengthFileSave.setGeometry(10, 190, 220, 30)
         self.LengthFileSave.setText('Length limit - No of clicks')
-        self.LengthFileEdit = QtWidgets.QLineEdit(self.ProjectPan)
-        self.LengthFileEdit.setGeometry(300, 180, 110, 30)
+        self.LengthFileEdit.setGeometry(300, 190, 110, 30)
         self.LengthFileEdit.setText('100000')
         self.LengthFileEdit.setAlignment(QtCore.Qt.AlignRight)
         self.LengthFileEdit.HorizontalAlignment = 'right'
         # Return to default values
-        self.DefaultBut = QtWidgets.QPushButton(self.ProjectPan)
         self.DefaultBut.setGeometry(20, 260, 150, 30)
         self.DefaultBut.setText("Default values")
         self.DefaultBut.clicked.connect(self.SetDefaults)
@@ -2381,152 +2374,114 @@ class Ui_MainWindow(object):
         # Detector
         self.DetPan.setFrameShape(QtWidgets.QFrame.StyledPanel)
         self.DetPan.setGeometry(5, 5, 535, 460)
-        self.CheckClassify = QtWidgets.QCheckBox(self.DetPan)
         self.CheckClassify.setGeometry(300, 330, 180, 30)
         self.CheckClassify.setText('Classify with PorCC')
         self.CheckClassify.setChecked(True)
 
         # Trigger Filter
-        self.DetectorLbl = QtWidgets.QLabel(self.DetPan)
         self.DetectorLbl.setGeometry(20, 10, 150, 30)
         self.DetectorLbl.setText('Detector settings')
         self.DetectorLbl.setFont(self.font)
-        self.ShortFiltLbl = QtWidgets.QLabel(self.DetPan)
         self.ShortFiltLbl.setGeometry(10, 40, 120, 30)
         self.ShortFiltLbl.setText('Short filter')
-        self.ShortFiltEdit = QtWidgets.QLineEdit(self.DetPan)
         self.ShortFiltEdit.setGeometry(160, 40, 80, 30)
         self.ShortFiltEdit.setText('0.1')
         self.ShortFiltEdit.setAlignment(QtCore.Qt.AlignRight)
-        self.LongFiltLbl = QtWidgets.QLabel(self.DetPan)
         self.LongFiltLbl.setGeometry(10, 80, 120, 30)
         self.LongFiltLbl.setText('Long filter')
-        self.LongFiltEdit = QtWidgets.QLineEdit(self.DetPan)
         self.LongFiltEdit.setGeometry(160, 80, 80, 30)
         self.LongFiltEdit.setText('0.00001')
         self.LongFiltEdit.setAlignment(QtCore.Qt.AlignRight)
-        self.LongFiltLbl2 = QtWidgets.QLabel(self.DetPan)
         self.LongFiltLbl2.setGeometry(10, 120, 120, 30)
         self.LongFiltLbl2.setText('Long filter 2')
-        self.LongFiltEdit2 = QtWidgets.QLineEdit(self.DetPan)
         self.LongFiltEdit2.setGeometry(160, 120, 80, 30)
         self.LongFiltEdit2.setText('0.000001')
         self.LongFiltEdit2.setAlignment(QtCore.Qt.AlignRight)
 
-        self.TriggerFilLbl = QtWidgets.QLabel(self.DetPan)
         self.TriggerFilLbl.setGeometry(320, 10, 150, 30)
         self.TriggerFilLbl.setText('Trigger filter')
         self.TriggerFilLbl.setFont(self.font)
-        self.MinFreqLbl = QtWidgets.QLabel(self.DetPan)
         self.MinFreqLbl.setGeometry(300, 50, 150, 30)
         self.MinFreqLbl.setText('Min Freq (kHz)')
-        self.MinFreqEd = QtWidgets.QLineEdit(self.DetPan)
         self.MinFreqEd.setGeometry(430, 50, 80, 30)
         self.MinFreqEd.setText('100')
         self.MinFreqEd.setAlignment(QtCore.Qt.AlignRight)
-        self.MaxFreqLbl = QtWidgets.QLabel(self.DetPan)
         self.MaxFreqLbl.setGeometry(300, 90, 150, 30)
         self.MaxFreqLbl.setText('Max Freq (kHz)')
-        self.MaxFreqEd = QtWidgets.QLineEdit(self.DetPan)
         self.MaxFreqEd.setGeometry(430, 90, 80, 30)
         self.MaxFreqEd.setText('150')
         self.MaxFreqEd.setAlignment(QtCore.Qt.AlignRight)
-        self.DetThresLbl = QtWidgets.QLabel(self.DetPan)
         self.DetThresLbl.setGeometry(300, 130, 120, 30)
         self.DetThresLbl.setText('Threshold (dB)')
-        self.DetThreshold = QtWidgets.QLineEdit(self.DetPan)
         self.DetThreshold.setGeometry(430, 130, 80, 30)
         self.DetThreshold.setText('10')
         self.DetThreshold.setAlignment(QtCore.Qt.AlignRight)
 
         # Prefilter
-        self.PreFiltLbl = QtWidgets.QLabel(self.DetPan)
         self.PreFiltLbl.setGeometry(20, 160, 150, 30)
         self.PreFiltLbl.setText('Pre-filter')
         self.PreFiltLbl.setFont(self.font)
-        self.PreFiltDDLbl = QtWidgets.QLabel(self.DetPan)
         self.PreFiltDDLbl.setGeometry(10, 200, 120, 30)
         self.PreFiltDDLbl.setText('Filter type')
-        self.PreFiltDD = QtWidgets.QComboBox(self.DetPan)
         self.PreFiltDD.setGeometry(100, 200, 180, 30)
         self.PreFiltDD.addItem('Butterworth')
         self.PreFiltDD.addItem('Chebyshev I')
         self.PreFiltDD.addItem('Chebyshev II')
         self.PreFiltDD.addItem('Bessel')
-        self.PreFiltPoleLbl = QtWidgets.QLabel(self.DetPan)
         self.PreFiltPoleLbl.setGeometry(10, 240, 120, 30)
         self.PreFiltPoleLbl.setText('Filter order')
-        self.PreFiltPole = QtWidgets.QLineEdit(self.DetPan)
         self.PreFiltPole.setGeometry(160, 240, 80, 30)
         self.PreFiltPole.setText('4')
-        self.PreFiltLbl2 = QtWidgets.QLabel(self.DetPan)
         self.PreFiltLbl2.setGeometry(10, 280, 120, 30)
         self.PreFiltLbl2.setText('Cut off freq')
-        self.PreFiltFreq = QtWidgets.QLineEdit(self.DetPan)
         self.PreFiltFreq.setGeometry(160, 280, 80, 30)
         self.PreFiltFreq.setText('20000')
 
         # Clicks tab
         self.PorCCPantab.setFrameShape(QtWidgets.QFrame.StyledPanel)
         self.PorCCPantab.setGeometry(5, 5, 535, 460)
-        self.ClicksLab = QtWidgets.QLabel(self.PorCCPantab)
         self.ClicksLab.setGeometry(30, 10, 150, 30)
         self.ClicksLab.setText('Clicks (samples)')
         self.ClicksLab.setFont(self.font)
-        self.PreSampLbl = QtWidgets.QLabel(self.PorCCPantab)
         self.PreSampLbl.setGeometry(10, 40, 150, 30)
         self.PreSampLbl.setText('Pre-Samples')
-        self.PreSampEd = QtWidgets.QLineEdit(self.PorCCPantab)
         self.PreSampEd.setGeometry(200, 40, 80, 30)
         self.PreSampEd.setText('40')
         self.PreSampEd.setAlignment(QtCore.Qt.AlignRight)
-        self.PostSampLbl = QtWidgets.QLabel(self.PorCCPantab)
         self.PostSampLbl.setGeometry(10, 80, 150, 30)
         self.PostSampLbl.setText('Post-Samples')
-        self.PostSampEd = QtWidgets.QLineEdit(self.PorCCPantab)
         self.PostSampEd.setGeometry(200, 80, 80, 30)
         self.PostSampEd.setText('40')
         self.PostSampEd.setAlignment(QtCore.Qt.AlignRight)
-        self.MaxLengthLbl = QtWidgets.QLabel(self.PorCCPantab)
         self.MaxLengthLbl.setGeometry(10, 120, 150, 30)
         self.MaxLengthLbl.setText('Max length')
-        self.MaxLengthEd = QtWidgets.QLineEdit(self.PorCCPantab)
         self.MaxLengthEd.setGeometry(200, 120, 80, 30)
         self.MaxLengthEd.setText('1024')
         self.MaxLengthEd.setAlignment(QtCore.Qt.AlignRight)
-        self.MinLengthLbl = QtWidgets.QLabel(self.PorCCPantab)
         self.MinLengthLbl.setGeometry(10, 160, 150, 30)
         self.MinLengthLbl.setText('Min Length')
-        self.MinLengthEd = QtWidgets.QLineEdit(self.PorCCPantab)
         self.MinLengthEd.setGeometry(200, 160, 80, 30)
         self.MinLengthEd.setText('90')
         self.MinLengthEd.setAlignment(QtCore.Qt.AlignRight)
-        self.MinSepLbl = QtWidgets.QLabel(self.PorCCPantab)
         self.MinSepLbl.setGeometry(10, 200, 150, 30)
         self.MinSepLbl.setText('Min separation')
-        self.MinSepEd = QtWidgets.QLineEdit(self.PorCCPantab)
         self.MinSepEd.setGeometry(200, 200, 80, 30)
         self.MinSepEd.setText('100')
         self.MinSepEd.setAlignment(QtCore.Qt.AlignRight)
 
         # label
-        self.PorCCLbl = QtWidgets.QLabel(self.PorCCPantab)
         self.PorCCLbl.setGeometry(20, 240, 150, 30)
         self.PorCCLbl.setText('PorCC settings')
         self.PorCCLbl.setFont(self.font)
         # #LQ
-        self.LQThresLab = QtWidgets.QLabel(self.PorCCPantab)
         self.LQThresLab.setText('Prob threshold - LQ')
         self.LQThresLab.setGeometry(10, 280, 160, 30)
-        self.LQThresDet = QtWidgets.QLineEdit(self.PorCCPantab)
         self.LQThresDet.setText('0.6')
         self.LQThresDet.setGeometry(200, 280, 80, 30)
         self.LQThresDet.setAlignment(QtCore.Qt.AlignRight)
         # #HQ
-        self.ProbHQLab = QtWidgets.QLabel(self.PorCCPantab)
         self.ProbHQLab.setText('Prob threshold - HQ')
         self.ProbHQLab.setGeometry(10, 320, 160, 20)
-        self.HQThresDet = QtWidgets.QLineEdit(self.PorCCPantab)
         self.HQThresDet.setText('0.999999')
         self.HQThresDet.setGeometry(200, 320, 80, 30)
         self.HQThresDet.setAlignment(QtCore.Qt.AlignRight)
@@ -2534,56 +2489,43 @@ class Ui_MainWindow(object):
         # Hydrophones section
         self.HydPan.setFrameShape(QtWidgets.QFrame.StyledPanel)
         self.HydPan.setGeometry(5, 5, 535, 460)
-        self.HydParLbl = QtWidgets.QLabel(self.HydPan)
         self.HydParLbl.setGeometry(20, 10, 250, 30)
         self.HydParLbl.setText('Hydrophone settings')
         self.HydParLbl.setFont(self.font)
-        self.DataTypeDD = QtGui.QComboBox(self.HydPan)
         self.DataTypeDD.setGeometry(200, 40, 150, 30)
-        self.DataTypeDD.addItem("PAMGuard")
         self.DataTypeDD.addItem("ST300HF")
         self.DataTypeDD.addItem("ST500HF")
         self.DataTypeDD.addItem('ST Click Detector')
+        self.DataTypeDD.addItem("PAMGuard")
         #   self.FileDD.activated[str].connect(self.style_choice)
-        self.DataTypeLbl = QtWidgets.QLabel(self.HydPan)
         self.DataTypeLbl.setGeometry(10, 40, 200, 30)
         self.DataTypeLbl.setText('Recorder/Hydrophone')
 
-        self.SerialNoLab = QtWidgets.QLabel(self.HydPan)
         self.SerialNoLab.setText('Serial number')
         self.SerialNoLab.setGeometry(10, 80, 150, 30)
-        self.SerialNoEdit = QtWidgets.QLineEdit(self.HydPan)
         self.SerialNoEdit.setGeometry(200, 80, 150, 30)
-        self.SerialNoEdit.setText('738496579')
+        self.SerialNoEdit.setText('0')
         self.SerialNoEdit.setAlignment(QtCore.Qt.AlignRight)
 
-        self.ChannelLab = QtWidgets.QLabel(self.HydPan)
         self.ChannelLab.setText('No of Channels')
         self.ChannelLab.setGeometry(10, 150, 150, 30)
-        self.EditHydNDet = QtWidgets.QLineEdit(self.HydPan)
         self.EditHydNDet.setGeometry(200, 150, 150, 30)
         self.EditHydNDet.setText('1')
         self.EditHydNDet.setAlignment(QtCore.Qt.AlignRight)
         # Sensitivity
-        self.SenLabel = QtWidgets.QLabel(self.HydPan)
         self.SenLabel.setText('Hyd Sensitivity (dB)')
         self.SenLabel.setGeometry(10, 190, 150, 30)
-        self.SensEditDet = QtWidgets.QLineEdit(self.HydPan)
         self.SensEditDet.setText('-172')
         self.SensEditDet.setGeometry(200, 190, 150, 30)
         self.SensEditDet.setAlignment(QtCore.Qt.AlignRight)
         # #Gain
-        self.GainLab1 = QtWidgets.QLabel(self.HydPan)
         self.GainLab1.setText('Gain (dB)')
         self.GainLab1.setGeometry(10, 230, 150, 30)
-        self.GainEditDet = QtWidgets.QLineEdit(self.HydPan)
         self.GainEditDet.setText('0')
         self.GainEditDet.setGeometry(200, 230, 150, 30)
         self.GainEditDet.setAlignment(QtCore.Qt.AlignRight)
-        self.DAQLab = QtWidgets.QLabel(self.HydPan)
         self.DAQLab.setText('Clip level (p-p, Volts)')
         self.DAQLab.setGeometry(10, 270, 150, 30)
-        self.DAQppEdit = QtWidgets.QLineEdit(self.HydPan)
         self.DAQppEdit.setText('2')
         self.DAQppEdit.setGeometry(200, 270, 150, 30)
         self.DAQppEdit.setAlignment(QtCore.Qt.AlignRight)
@@ -2635,9 +2577,9 @@ class Ui_MainWindow(object):
         self.CancelButtonDet.clicked.connect(self.CancelDetector)
         # in PorCC
         self.OKButtonDet = QtWidgets.QPushButton(self.PorCCPantab)
+        self.CancelButtonDet = QtWidgets.QPushButton(self.PorCCPantab)
         self.OKButtonDet.setText('Run detector')
         self.OKButtonDet.setGeometry(60, 380, 150, 40)
-        self.CancelButtonDet = QtWidgets.QPushButton(self.PorCCPantab)
         self.CancelButtonDet.setText('Cancel')
         self.CancelButtonDet.setGeometry(320, 380, 150, 40)
         self.OKButtonDet.clicked.connect(self.RunDetector)
@@ -2671,7 +2613,6 @@ class Ui_MainWindow(object):
 
     def RunDetector(self):
         self.MenuDetSetFig.close()
-        global SelectedFolderSave, Folders
         MainFolder = self.FolderPathDet.text()
         ModelSel = self.DataTypeDD.currentText()
         classifier = porcc.PorCC(load_type='manual', config_file='default')
@@ -2682,7 +2623,7 @@ class Ui_MainWindow(object):
         classifier.th2 = LQ
         if ModelSel == 'ST300HF' or ModelSel == 'ST500HF':
             name = 'SoundTrap'
-            serial_number = int(self.SerialNoEdit.text())  # 738496579
+            serial_number = int(self.SerialNoEdit.text())  # 0
             if serial_number == 0:
                 Sens = int(self.SensEditDet.text())
                 hydrop = pyhy.soundtrap.SoundTrap(name=name, model=ModelSel, sensitivity=Sens,
@@ -2746,8 +2687,8 @@ class Ui_MainWindow(object):
                 detector.save_folder = MainFolder
             else:
                 Folders = [s for s in FilesAndFolders if os.path.isdir(os.path.join(MainFolder, s))]
-            for thisFolder in Folders:
-                ThisFolderSave = MainFolder + '/' + thisFolder
+            for myFolder in Folders:
+                ThisFolderSave = MainFolder + '/' + myFolder
                 print('Detecting clicks in', ThisFolderSave)
                 if not zip_mode:
                     detector.save_folder = ThisFolderSave
@@ -2768,8 +2709,10 @@ class Ui_MainWindow(object):
         self.SelectFolderText1.setGeometry(20, 10, 200, 30)
         self.SelectFolderText1.setText('Select Folder')
         # edit - selected folder to be read
+        self.FolderPathOpenCT = QtWidgets.QLineEdit(self.OpenCTPan)
         self.FolderPathOpenCT.setGeometry(20, 50, 310, 30)
         # browse button
+        self.BrowseButtonOpen = QtWidgets.QPushButton(self.OpenCTPan)
         self.BrowseButtonOpen.setGeometry(230, 85, 100, 30)
         self.BrowseButtonOpen.setText('Browse')
         self.BrowseButtonOpen.clicked.connect(self.PushBrowseButtonOpenCT)
@@ -2842,14 +2785,6 @@ class Ui_MainWindow(object):
         self.NewCTFig.close()
         # TODO make only one cancel function
 
-    def PushApplyButtonCT(self):
-        pass
-        # TODO complete the function
-
-    # OpenCTFig = QMessageBox()
-    # OpenCTFig.setWindowTitle = 'New Project'
-    # OpenCTFig.setText("I'm testing this")
-    # x = OpenCTFig.exec_()
     def NewCTBrowse(self):
         root = tk.Tk()
         root.withdraw()
@@ -2869,11 +2804,11 @@ class Ui_MainWindow(object):
             myFolders = MainFolder
             print(myFolders)
 
-        for thisFolder in myFolders:
+        for myFolder in myFolders:
             if myFolders == MainFolder:
                 FilesInFolder = os.listdir(MainFolder)
             else:
-                FilesInFolder = os.listdir(MainFolder + '/' + thisFolder)
+                FilesInFolder = os.listdir(MainFolder + '/' + myFolder)
             if any("." in s for s in FilesInFolder):
                 CPFile = [s for s in FilesInFolder if "CP.csv" in s]
                 print(len(CPFile))
@@ -2921,8 +2856,8 @@ class Ui_MainWindow(object):
     def PushBrowseButtonOpenCT(self):
         root = tk.Tk()
         root.withdraw()
-        self.SelectedFolder = filedialog.askdirectory()
-        self.FolderPathOpenCT.setText(self.SelectedFolder)
+        self.SelectedFolderCT = filedialog.askdirectory()
+        self.FolderPathOpenCT.setText(self.SelectedFolderCT)
 
     def OpenCT(self):
         global CP, CTInfo
@@ -2935,36 +2870,6 @@ class Ui_MainWindow(object):
         CTInfo.reset_index(inplace=True, drop=True)
         NumCT = int(CTInfo.CTNum.iloc[0])
         self.UpdateCT(NumCT, CP, CTInfo)
-
-    #    def PushBrowseButton(BrowseButton, event)
-    #        folder = fullfile(matlabroot, 'C:\Users\')
-    #         SelectedFolder = uigetdir(folder)
-    #         if SelectedFolder == 0
-    #             return
-
-    #         FolderPathOpenCT.Value = SelectedFolder
-    # self.OpenCTFig.close()
-    # SelectedFolder = self.FolderPathOpenCT.text()
-    #       AllButton.Value = 1
-
-    #        ClickParNames = strcat(SelectedFolder,'\ClickParametersTested.mat')
-    #        ClickParFilesInFolder = dir(ClickParNames)
-    #        NumParMatFiles = size(ClickParFilesInFolder,1)
-    #        ClickParFileName = ClickParFilesInFolder(1).name
-    #        ClickParFile = SelectedFolder + '\' + ClickParFileName
-    #        %load(ClickParFile)
-    #        TempCP = load(ClickParFile)
-    #        CP = self.TempCP.ClickParameters
-    #        TempCP = []
-    #        CTInfoFile = strcat(SelectedFolder, '\CTInfoNew.mat')
-    #        %load(ClickParFile)
-    #        CTInfoTemp = load(CTInfoFile)
-    #        CTInfo = CTInfoTemp.CTInfo
-    #        CTInfo2 = CTInfo
-    #        CTInfoTemp = []
-    #        CTNum = CTInfo(1).CTNum
-    #        UpdateCT(, CTNum)
-    #    end
 
     def UploadMetricData(self):
         global topLevelFolderMetrics, CTInfo, CP, thisFolder
