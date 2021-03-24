@@ -43,6 +43,14 @@ global thisFolder, sset, srise, Fs, PosPorMin, SummaryTable, numberOfFoldersMetr
 
 
 def NewICI(myTable, fs):
+    """
+    Calculates inter-click intervals and repetition rates after rows have been removed
+    :param
+    myTable: pandas dataframe
+            Either CP or CTTemp
+    :return:
+    myTable updated
+    """
     start_sample = myTable["start_sample"]
     myTable = myTable.assign(ICI=start_sample.diff() / (fs / 1000))
     myTable = myTable.assign(CPS=1000 / myTable.ICI)
@@ -72,6 +80,9 @@ def FromOrdinal(x):
 
 
 def ExtractPatterns(myCP, myFs, lat, long):
+    """
+
+    """
     CTNum = 0
     ColNames = ['CTNum', 'Date', 'DayNight', 'Length', 'Species', 'Behav', 'Calf', 'Notes']
     myCTInfo = pd.DataFrame(data=None, columns=ColNames)
@@ -113,13 +124,15 @@ def ExtractPatterns(myCP, myFs, lat, long):
             NewPos = np.linspace(start=PosInCP, stop=NextPos, num=CTsInside + 2).astype(int)
             NewPos = pd.Series(NewPos)
             TimeGaps.append(NewPos[1:-1 - 1])
+            TimeGaps = TimeGaps.sort()
+            TimeGaps.reset_index(inplace=True, drop=True)
         DiffTimeGaps = TimeGaps.diff()
         CTs = DiffTimeGaps[DiffTimeGaps > 9].index
     else:
         CTs = DiffTimeGaps[DiffTimeGaps > 9].index
 
     for j in range(0, len(CTs)):  # j runs through all the CT c
-        print('Processing click train', j, 'of', len(CTs))
+        # print('Processing click train', j, 'of', len(CTs))
         if j == 0:
             Start = 0
             End = TimeGaps[CTs[j]]
@@ -134,7 +147,7 @@ def ExtractPatterns(myCP, myFs, lat, long):
             L1 = len(CT)
             CT = NewICI(CT, myFs)
             CT = CT.drop(CT[(CT.start_sample.diff() < 500)
-                                        & ((CT.amplitude.diff() < 0) | (CT.start_sample.diff() > 6))].index)
+                            & ((CT.amplitude.diff() < 0) | (CT.start_sample.diff() > 6))].index)
             CT.reset_index(inplace=True, drop=True)
             L2 = len(CT)
         CTNum = CTNum + 1
@@ -151,14 +164,13 @@ def ExtractPatterns(myCP, myFs, lat, long):
             CT = CT.drop(RowsToDelete)
             CT.reset_index(inplace=True, drop=True)
             L2 = len(CT)
-        # end
+
         # A large difference indicates echoes
         SortedCPS = CT.CPS.values.copy()
         SortedCPS.sort()
         DiffSorted = pd.DataFrame(SortedCPS).diff()
         DiffSorted = DiffSorted.drop([0])
         MaxDiffSorted = DiffSorted.max().values
-        # ExploreCTTemp(CTTemp)
 
         if MaxDiffSorted <= 40:
             NewCT = CT.copy()
@@ -185,11 +197,11 @@ def ExtractPatterns(myCP, myFs, lat, long):
             DiffSorted = pd.DataFrame(SortedCPS).diff()
             DiffSorted = DiffSorted.drop([0])
             MaxDiffSorted = DiffSorted.max().values
-            # ExploreCTTemp(CTTemp)
+
             if MaxDiffSorted <= 50:
                 NewCT = CT.copy()
             elif len(CT) > 20:
-                # Finding the stable areas
+                # Finding stable areas
                 CPSDiff = CT.CPS.diff()
                 PercChangeS = (CPSDiff / CT.CPS[1:-1 - 1]) * 100
                 PercChangeS = abs(PercChangeS[2:-1])
@@ -214,8 +226,8 @@ def ExtractPatterns(myCP, myFs, lat, long):
                     NewCT = CT.copy()
                     NewCT = NewICI(NewCT, myFs)
                 else:  # go into the CT
-                    RowN = StartRow[0]  # Low variability in CPS(for the next 4)
-                    RowsToKeep = np.array(Here)  # # ok<FNDSB>
+                    RowN = StartRow[0]  # Low variability in CPS (in the next 4 clicks)
+                    RowsToKeep = np.array(Here)
                     FirstRowN = RowN
 
                     # Look backwards
@@ -263,16 +275,13 @@ def ExtractPatterns(myCP, myFs, lat, long):
                             RowN = RowN + ixCPS[0]
                         else:
                             RowN = RowN + ixCPS[0]
-                            # end
-                            RowsToKeep = np.append(RowsToKeep, RowN)
+                        # end
+                        RowsToKeep = np.append(RowsToKeep, RowN)
                     # end
                     RowsToKeep = np.append(RowsToKeep, RowN)
-                    # end
-
                     RowsToKeep = np.unique(RowsToKeep)
                     RowsToKeep = np.delete(RowsToKeep, np.where(RowsToKeep <= 0))
                     RowsToKeep = np.delete(RowsToKeep, np.where(RowsToKeep > len(CT) - 1))
-
                     if len(RowsToKeep) > 0:
                         NewCT = CT.iloc[RowsToKeep]
                         NewCT.reset_index(inplace=True, drop=True)
@@ -291,6 +300,8 @@ def ExtractPatterns(myCP, myFs, lat, long):
             else:
                 CTrains = CTrains.append(NewCT.copy())
             # end
+        else:
+            CTNum = CTNum - 1
     # end
     return CTrains, myCTInfo, myCP
 
@@ -762,7 +773,6 @@ class Ui_MainWindow(object):
         self.DAQEditPorCC = QtWidgets.QLineEdit(self.ParPanPorCC)
         self.DAQLabPorCC = QtWidgets.QLabel(self.ParPanPorCC)
 
-
         self.LQLab = QtWidgets.QLabel(self.ProbPan)
         self.LQThres = QtWidgets.QLineEdit(self.ProbPan)
         self.LQ = QtWidgets.QLabel(self.ProbPan)
@@ -792,7 +802,6 @@ class Ui_MainWindow(object):
         self.OpenCTPan = QtWidgets.QFrame(self.OpenCTFig)
         self.OpenCTCancelButton = QtWidgets.QPushButton(self.OpenCTPan)
         self.OpenCTButton = QtWidgets.QPushButton(self.OpenCTPan)
-
 
         self.SelectFolderText1 = QtWidgets.QLabel(self.OpenCTPan)
 
@@ -843,7 +852,6 @@ class Ui_MainWindow(object):
         self.MainTab.setStyleSheet("background-color: rgb(240, 240, 238)")
         self.MainTab.setObjectName("MainTab")
         self.MainDisplayTab.setObjectName("MainDisplayTab")
-
 
         ####################
         # DISPLAY PARAMETERS
@@ -1275,6 +1283,7 @@ class Ui_MainWindow(object):
     """
     FUNCTIONS
     """
+
     def PushPorCCButton(self):
         pass
         # self.MenuPorCCF.close()
@@ -2214,7 +2223,8 @@ class Ui_MainWindow(object):
             PPM = pd.DataFrame()
             if self.CheckAllFoldersMetr.isChecked():
                 # List subfolders
-                Folders = [item for item in os.listdir(topLevelFolderMetrics) if os.path.isdir(os.path.join(topLevelFolderMetrics, item))]
+                Folders = [item for item in os.listdir(topLevelFolderMetrics) if
+                           os.path.isdir(os.path.join(topLevelFolderMetrics, item))]
                 numberOfFoldersMetrics = len(Folders)
                 for myFolder in Folders:
                     Files = os.listdir(os.path.join(topLevelFolderMetrics, myFolder))
@@ -2271,6 +2281,7 @@ class Ui_MainWindow(object):
                 #             PPM.NumClicks[RowN, FolderN - 1] = PPM.NumClicks[RowN, FolderN - 1] + AllNBHF.Length[i]
                 #         FullName = thisFolder + 'PosPorMin.csv'
                 #         PPM.to_csv(FullName)
+
     """
     MENUS
     """
@@ -2889,7 +2900,7 @@ class Ui_MainWindow(object):
                 FilesInFolder = os.listdir(MainFolder + '/' + myFolder)
             if any("." in s for s in FilesInFolder):
                 CPFile = [s for s in FilesInFolder if "CP.csv" in s]
-                print(len(CPFile))
+                print('Processing folder', myFolder)
                 if len(CPFile) > 0:
                     if myFolders == MainFolder:
                         CPFileName = MainFolder + '/CP.csv'
@@ -2937,19 +2948,17 @@ class Ui_MainWindow(object):
         self.SelectedFolderCT = filedialog.askdirectory()
         self.FolderPathOpenCT.setText(self.SelectedFolderCT)
 
-
     def OpenCT(self):
         global CP, CTInfo
         self.OpenCTFig.close()
-        CPFileName = self.SelectedFolder + "/CTrains.csv"
+        CPFileName = self.SelectedFolderCT + "/CTrains.csv"
         CP = pd.read_csv(CPFileName)
-        CTInfoFileName = self.SelectedFolder + "/CTInfo.csv"
+        CTInfoFileName = self.SelectedFolderCT + "/CTInfo.csv"
         CTInfo = pd.read_csv(CTInfoFileName)
         CTInfo = CTInfo[CTInfo.Length > 9]
         CTInfo.reset_index(inplace=True, drop=True)
         NumCT = int(CTInfo.CTNum.iloc[0])
         self.UpdateCT(NumCT, CP, CTInfo)
-
 
     def SaveUpdates(self):
         FullName = self.SelectedFolder + '/CTInfo.csv'
