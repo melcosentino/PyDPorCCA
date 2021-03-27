@@ -2,7 +2,7 @@
 Module : GUIDPorCCA.py
 Authors : Mel Cosentino
 Institution : University of Strathclyde (UK), Aarhus University (Denmark)
-Last Accessed : 11/10/2020
+Last Accessed : 27/03/2021
 """
 
 __author__ = "Mel Cosentino"
@@ -81,10 +81,35 @@ def FromOrdinal(x):
 
 def ExtractPatterns(myCP, myFs, lat, long):
     """
+     Locates acoustic events and identifies underlying patterns by keeping consecutive clicks with regular variations
+     of inter-click intervals (or repetition rates) and amplitude.
 
+     Parameters:
+        CP = table containing parameters of each click identified in the data, which were already classified as either
+          high- or low-quality porpoise clicks.
+        myFs = sampling frequency
+        lat = latitude of the location of the device. Used to estimate whether the acoustic event occurred during the
+          day or the night
+        long = longitude of the location of the device. Used to estimate whether the acoustic event occurred during the
+          day or the night
+
+     Variables used:
+
+         CTTemp: temporary click train. Using a minimum separation time
+               period of 700 ms, clicks are separated into click trains.
+               Click trains that have more than 1000 clicks are divided
+               into smaller ones of the same size.
+         CT: final version of the click train. It is stored in another
+               file.
+         CTNum: click train number. Consecutive number starting at 1.
+               Assigned to click trains during the pattern extraction
+               process.
+     Functions:
+
+         CTType:
     """
     CTNum = 0
-    ColNames = ['CTNum', 'Date', 'DayNight', 'Length', 'Species', 'Behav', 'Calf', 'Notes']
+    ColNames = ['CTNum', 'Date', 'DayNight', 'Length', 'CTType', 'Behav', 'Calf', 'Notes']
     myCTInfo = pd.DataFrame(data=None, columns=ColNames)
     myCP = myCP.drop(myCP[myCP.duration > 450].index)
     myCP.reset_index(inplace=True, drop=True)
@@ -102,7 +127,7 @@ def ExtractPatterns(myCP, myFs, lat, long):
         myCP = NewICI(myCP, myFs)
         S2 = len(myCP)
 
-    # myCP = myCP.drop(myCP[(myCP.CPS.diff() > 80.0)].index)
+    myCP = myCP.drop(myCP[(myCP.CPS.diff() > 80.0)].index)
     myCP.reset_index(inplace=True, drop=True)
     myCP = NewICI(myCP, myFs)
     ColNames = list(myCP.columns)
@@ -132,7 +157,6 @@ def ExtractPatterns(myCP, myFs, lat, long):
         CTs = DiffTimeGaps[DiffTimeGaps > 9].index
 
     for j in range(0, len(CTs)):  # j runs through all the CT c
-        # print('Processing click train', j, 'of', len(CTs))
         if j == 0:
             Start = 0
             End = TimeGaps[CTs[j]]
@@ -173,7 +197,7 @@ def ExtractPatterns(myCP, myFs, lat, long):
         MaxDiffSorted = DiffSorted.max().values
 
         if MaxDiffSorted <= 40:
-            NewCT = CT.copy()
+            FinalCT = CT.copy()
         else:
             # remove outliers (from https://stackoverflow.com/questions/62692771/
             # outlier-detection-based-on-the-moving-mean-in-python)
@@ -199,7 +223,7 @@ def ExtractPatterns(myCP, myFs, lat, long):
             MaxDiffSorted = DiffSorted.max().values
 
             if MaxDiffSorted <= 50:
-                NewCT = CT.copy()
+                FinalCT = CT.copy()
             elif len(CT) > 20:
                 # Finding stable areas
                 CPSDiff = CT.CPS.diff()
@@ -223,8 +247,8 @@ def ExtractPatterns(myCP, myFs, lat, long):
                 Here = DiffStartRow[DiffStartRow == 1].index.to_series()
                 Here.reset_index(inplace=True, drop=True)
                 if len(StartRow) < 2:
-                    NewCT = CT.copy()
-                    NewCT = NewICI(NewCT, myFs)
+                    FinalCT = CT.copy()
+                    FinalCT = NewICI(FinalCT, myFs)
                 else:  # go into the CT
                     RowN = StartRow[0]  # Low variability in CPS (in the next 4 clicks)
                     RowsToKeep = np.array(Here)
@@ -250,10 +274,8 @@ def ExtractPatterns(myCP, myFs, lat, long):
                             RowN = RowN - ixCPS[0]
                         else:
                             RowN = RowN - ixCPS[0]
-                        # end
-                        RowsToKeep = np.append(RowsToKeep, RowN)
-                    # end
 
+                        RowsToKeep = np.append(RowsToKeep, RowN)
                     # Look forwards
                     RowN = FirstRowN
                     while RowN < len(CT) - 10:
@@ -275,34 +297,33 @@ def ExtractPatterns(myCP, myFs, lat, long):
                             RowN = RowN + ixCPS[0]
                         else:
                             RowN = RowN + ixCPS[0]
-                        # end
+
                         RowsToKeep = np.append(RowsToKeep, RowN)
-                    # end
+
                     RowsToKeep = np.append(RowsToKeep, RowN)
                     RowsToKeep = np.unique(RowsToKeep)
                     RowsToKeep = np.delete(RowsToKeep, np.where(RowsToKeep <= 0))
                     RowsToKeep = np.delete(RowsToKeep, np.where(RowsToKeep > len(CT) - 1))
                     if len(RowsToKeep) > 0:
-                        NewCT = CT.iloc[RowsToKeep]
-                        NewCT.reset_index(inplace=True, drop=True)
-                        NewCT = NewICI(NewCT, myFs)
+                        FinalCT = CT.iloc[RowsToKeep]
+                        FinalCT.reset_index(inplace=True, drop=True)
+                        FinalCT = NewICI(FinalCT, myFs)
+                    else:
+                        FinalCT = []
             else:
-                NewCT = CT.copy()
-                NewCT = NewICI(NewCT, myFs)
-            # end
-        # end
-        NewCT.reset_index(inplace=True, drop=True)
-        if len(NewCT) > 0:
-            myCTInfo = CTInfoMaker(myCTInfo, NewCT, lat, long)
+                FinalCT = CT.copy()
+                FinalCT = NewICI(FinalCT, myFs)
+
+        if len(FinalCT) > 0:
+            FinalCT.reset_index(inplace=True, drop=True)
+            myCTInfo = CTInfoMaker(myCTInfo, FinalCT, lat, long)
             # Put result into a final file
             if j == 0:
-                CTrains = NewCT.copy()
+                CTrains = FinalCT.copy()
             else:
-                CTrains = CTrains.append(NewCT.copy())
-            # end
+                CTrains = CTrains.append(FinalCT.copy())
         else:
             CTNum = CTNum - 1
-    # end
     return CTrains, myCTInfo, myCP
 
 
@@ -405,6 +426,15 @@ def UpdateWaterfall(XLimMin, YLimMin, ZLimMin, XLimMax, YLimMax, ZLimMax):
 
 
 def CTInfoMaker(myCTInfo, myCTTemp, myLat, myLong):  # srise, sset
+    """
+    CTInfoMaker: for each identified click train (myCTTemp), this function estimates a series of summary parameters
+        and generates a table called CTInfo. These parameters are:
+            CTNum = click train number
+            datetime: date and time
+            DayNight = whether it was detected during the day or at night
+            Length = length (in number of clicks)
+            CTType = type of click train (NBHF, LQ-NBHF, Noise, Sonar)
+    """
     # Store in CTInfo
     CTNum = myCTTemp.CT[0]
     # day/night
@@ -424,17 +454,24 @@ def CTInfoMaker(myCTInfo, myCTTemp, myLat, myLong):  # srise, sset
         DayNight = 'Night'
 
     # Type
-    Type = Species(myCTTemp)
-    if Type == 'Non-NBHF':
+    Type = CTType(myCTTemp)
+    if Type == 'Noise':
         Behav = '-'
     else:
         Behav = Behaviour(myCTTemp)
-    myCTInfo = myCTInfo.append({'CTNum': CTNum, 'Date': myCTTemp.datetime[0], 'Length': len(myCTTemp), 'Species': Type,
+    myCTInfo = myCTInfo.append({'CTNum': CTNum, 'Date': myCTTemp.datetime[0], 'Length': len(myCTTemp), 'CTType': Type,
                                 'DayNight': DayNight, 'Behav': Behav, 'Calf': '-', 'Notes': ' '}, ignore_index=True)
     return myCTInfo
 
 
-def Species(CT):
+def CTType(CT):
+    """
+        Estimates a series of parameters for each click train and classify them into either of three categories:
+            NBHF: narrow-band, high-frequency click trains, with a high probability of being produced by harbour
+                porpoises or species that emit similar signals.
+            LQ-NBHF: low-quality NBHF click trains, with higher false alarms levels.
+            Noise: high-frequency background noise.
+    """
     CFDiff = CT.CF.diff()
     PercChangeCF = (CFDiff / CT.CF[0:-1 - 1]) * 100
     MedianPercChangeCF = abs(PercChangeCF).median()
@@ -444,11 +481,11 @@ def Species(CT):
     PercChange = (CPSDiff / CT.CPS[1:-1 - 1]) * 100
     MedianPercChangeCPS = abs(PercChange[1:-1]).median()
     if len(CT) < 10:
-        Type = 'Non-NBHF'
+        Type = 'Noise'
     elif MedianPercChangeCF < 0.5 and MedianPercChangeCPS < 0.05 and SDCF < 300:
-        Type = 'Non-NBHF'
+        Type = 'Noise'
     elif MedianPercChangeCPS > 70 or MedianPercChangeCF > 4:
-        Type = 'Non-NBHF'
+        Type = 'Noise'
     elif MedianPercChangeCPS < 30 or (MedianPercChangeCPS < 30 and MedianPercChangeCF > 2.65):
         Type = 'NBHF'
     else:
@@ -458,6 +495,21 @@ def Species(CT):
 
 
 def Behaviour(CT):
+    """
+        THIS FUNCTION IS STILL UNDER DEVELOPMENT
+
+        Based on the patterns in repetition rates in NBHF and LQ-NBHF click trains, this functions classify these
+        patterns into either of 5 categories:
+            Orientation: low repetition rates (below 100 clicks per second), indicating the animal is exploring the
+                environment without focusing on any object in particular
+            Foraging: increase in click production to well over 100 clicks per second, reaching up to over 600
+            Socialising: repetition rates over 100 clicks per second, or decreasing pattern
+            Unknown: neither of the patterns described above
+            Sonar: fix frequency and repetition rate. These vary depending on the area.
+
+        Parameters:
+            CT = click train
+    """
     CFDiff = CT.CF.diff()
     PercChangeCF = (CFDiff / CT.CF[0:-1 - 1]) * 100
     MeanPF = CT.CF.mean()
@@ -837,9 +889,7 @@ class Ui_MainWindow(object):
         MainWindow.setMinimumSize(QtCore.QSize(1600, 950))
         MainWindow.setMaximumSize(QtCore.QSize(1600, 950))
 
-        ###########################################################
         # MAIN TABS
-        ###########################################################
         self.centralwidget.setObjectName("centralwidget")
         self.MainTab.setGeometry(QtCore.QRect(0, 0, 1422, 888))
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
@@ -853,9 +903,7 @@ class Ui_MainWindow(object):
         self.MainTab.setObjectName("MainTab")
         self.MainDisplayTab.setObjectName("MainDisplayTab")
 
-        ####################
         # DISPLAY PARAMETERS
-        ####################
         self.font = QtGui.QFont()
         self.font.setBold(True)
         self.font.setWeight(75)
@@ -979,9 +1027,7 @@ class Ui_MainWindow(object):
         self.SaveupdatesButton.setObjectName("SaveupdatesButton")
         self.SaveupdatesButton.clicked.connect(self.SaveUpdates)
 
-        """
-        AXES AREA
-        """
+        # AXES AREA
         pg.setConfigOption('background', 'w')
         self.AxesPan.setGeometry(QtCore.QRect(10, 150, 1200, 700))
         self.AxesPan.setFrameShape(QtWidgets.QFrame.Box)
@@ -1025,9 +1071,8 @@ class Ui_MainWindow(object):
         self.DirectionofarrivalButton.setGeometry(QtCore.QRect(400, 10, 200, 20))
         self.DirectionofarrivalButton.setFont(self.font)
         self.DirectionofarrivalButton.setObjectName("DirectionofarrivalButton")
-        """
-        ACTION AREA
-        """
+
+        # ACTION AREA
         self.ActionPan.setGeometry(QtCore.QRect(1220, 150, 360, 700))
         self.ActionPan.setFrameShape(QtWidgets.QFrame.Box)
         self.ActionPan.setFrameShadow(QtWidgets.QFrame.Raised)
@@ -1084,7 +1129,7 @@ class Ui_MainWindow(object):
         self.CTTypeDropDown.addItem("Select")
         self.CTTypeDropDown.addItem("NBHF")
         self.CTTypeDropDown.addItem("LQ-NBHF")
-        self.CTTypeDropDown.addItem("Non-NBHF")
+        self.CTTypeDropDown.addItem("Noise")
         self.CTTypeDropDown.addItem("Sonar")
         self.ValTypeLab.setGeometry(QtCore.QRect(20, 70, 70, 20))
         self.ValTypeLab.setObjectName("ValTypeLab")
@@ -1102,9 +1147,8 @@ class Ui_MainWindow(object):
         self.ValButton.setGeometry(QtCore.QRect(30, 200, 260, 50))
         self.ValButton.setObjectName("ValButton")
         self.ValButton.clicked.connect(self.Validate)
-        ########################################################
+
         # METRICS DISPLAY
-        #######################################################
         self.MainTab.addTab(self.MainDisplayTab, "")
         self.MetricsDisplayTab.setObjectName("MetricsDisplayTab")
         self.MetricsUploadPan.setGeometry(QtCore.QRect(10, 8, 560, 122))
@@ -1134,9 +1178,7 @@ class Ui_MainWindow(object):
         # TODO SHOULD CALL MetricBrowse.py here
         self.MetricBrowseButton.clicked.connect(self.MetricsBrowse)
 
-        """
-        Metrics Table
-        """
+        # Metrics Table
         self.MetricsTablePan.setGeometry(QtCore.QRect(10, 140, 560, 700))
         self.MetricsTablePan.setFrameShape(QtWidgets.QFrame.Box)
         self.MetricsTablePan.setFrameShadow(QtWidgets.QFrame.Raised)
@@ -1170,9 +1212,7 @@ class Ui_MainWindow(object):
         item = QtWidgets.QTableWidgetItem()
         self.MetricsTable.setHorizontalHeaderItem(11, item)
 
-        """
-        Metrics summary
-        """
+        # Metrics summary
         self.SummaryPan.setGeometry(QtCore.QRect(580, 140, 1000, 700))
         self.SummaryPan.setFrameShape(QtWidgets.QFrame.Box)
         self.SummaryPan.setFrameShadow(QtWidgets.QFrame.Raised)
@@ -1199,9 +1239,8 @@ class Ui_MainWindow(object):
         self.MetricPPMPan.setFrameShape(QtWidgets.QFrame.Box)
         self.MetricPPMPan.setFrameShadow(QtWidgets.QFrame.Raised)
         self.MetricPPMPan.setObjectName("MetricPPMPan")
-        """
-        Positive porpoise minutes
-        """
+
+        # Positive porpoise minutes
         self.PPMPan.setGeometry(QtCore.QRect(10, 8, 310, 90))
         self.PPMPan.setFrameShape(QtWidgets.QFrame.Box)
         self.PPMPan.setFrameShadow(QtWidgets.QFrame.Raised)
@@ -1244,9 +1283,7 @@ class Ui_MainWindow(object):
         self.TablesPan.setFrameShadow(QtWidgets.QFrame.Raised)
         self.TablesPan.setObjectName("TablesPan")
 
-        """
-        MENU
-        """
+        # MAIN MENU
         self.menubar.setGeometry(QtCore.QRect(0, 0, 1422, 18))
         self.menubar.setObjectName("menubar")
         self.menuMain_Display.setObjectName("menuMain_Display")
@@ -1280,258 +1317,121 @@ class Ui_MainWindow(object):
         # self.MenuSetPorCC.triggered.connect(lambda: self.OpenPorCCSetMenu())
         self.MenuSetDetector.triggered.connect(lambda: self.OpenDetSetMenu())
 
-    """
-    FUNCTIONS
-    """
 
-    def PushPorCCButton(self):
+    # FUNCTIONS ###
+    # Translate
+    def retranslateUi(self, MainWindow):
+        _translate = QtCore.QCoreApplication.translate
+        MainWindow.setWindowTitle(_translate("MainWindow", "D-PorCCA"))
+        self.DateandtimeofCTLabel.setText(_translate("MainWindow", "12 Aug 2015, 12.35.32"))
+        self.DayNightTextLabel.setText(_translate("MainWindow",
+                                                  "<html><head/><body><p><span style=\" "
+                                                  "font-weight:600\">Day/Night</span></p></body></html>"))
+        self.DayLabel.setText(_translate("MainWindow", "Day"))
+        self.CTNumLabel.setText(_translate("MainWindow",
+                                           "<html><head/><body><p><span style=\" font-weight:600\">Click train number "
+                                           "(Total)</span></p></body></html>"))
+        self.CTForw.setText(_translate("MainWindow", ">"))
+        self.CTBack.setText(_translate("MainWindow", "<"))
+        self.TotalLabel.setText(_translate("MainWindow", "()"))
+        self.LengthText.setText(_translate("MainWindow",
+                                           "<html><head/><body><p><span style=\" "
+                                           "font-weight:600\">Length</span></p></body></html>"))
+        self.LengthLabel.setText(_translate("MainWindow", "20"))
+        self.SaveupdatesButton.setText(_translate("MainWindow", " Save \n"
+                                                                "updates"))
+        self.CTLabel.setText(_translate("MainWindow",
+                                        "<html><head/><body><p><span style=\" font-weight:600\">CT "
+                                        "Type</span></p></body></html>"))
+        self.CTTypeLabel.setText(_translate("MainWindow", "NBHF"))
+        self.BehavTextLabel.setText(_translate("MainWindow",
+                                               "<html><head/><body><p><span style=\" "
+                                               "font-weight:600\">Behaviour</span></p></body></html>"))
+        self.BehavLabel.setText(_translate("MainWindow", "Socialising"))
+        self.CalfTextLabel.setText(_translate("MainWindow",
+                                              "<html><head/><body><p><span style=\" "
+                                              "font-weight:600\">Calf</span></p></body></html>"))
+        self.CalfLabel.setText(_translate("MainWindow", "No"))
+        self.NoteLabel.setText(_translate("MainWindow",
+                                          "<html><head/><body><p><span style=\" "
+                                          "font-weight:600\">Notes</span></p></body></html>"))
+        self.SeeAddButton.setText(_translate("MainWindow", "Add/Modify"))
+        self.DateLabel.setText(_translate("MainWindow",
+                                          "<html><head/><body><p><span style=\" "
+                                          "font-weight:600\">Date</span></p></body></html>"))
+        self.ActionLabel.setText(_translate("MainWindow", "ACTIONS - CLICK TRAINS"))
+        self.ActionTextLabel.setText(_translate("MainWindow", "Display"))
+        self.AllButton.setText(_translate("MainWindow", "All"))
+        self.NBHFButton.setText(_translate("MainWindow", "NBHF"))
+        self.IndCTLabel.setText(_translate("MainWindow", "Individual click trains - 3D"))
+        self.IndClicksAnd3D.setText(_translate("MainWindow", "Click train in 3D"))
+        self.SpectrogramButton.setText(_translate("MainWindow", "Spectrogram"))
+        self.ValidateLab.setText(_translate("MainWindow", "Validation/changes"))
+        self.ValButton.setText(_translate("MainWindow", "Validate"))
+        # self.BehaviourDropDown.setText(_translate("MainWindow", "Select"))
+        # self.CTTypeDropDown.setText(_translate("MainWindow", "Select"))
+        self.ValTypeLab.setText(_translate("MainWindow", "CT Type"))
+        self.ValBehavLab.setText(_translate("MainWindow", "Behaviour"))
+        self.AmplitudeDB.setText(_translate("MainWindow",
+                                            "<html><head/><body><p><span style=\" font-weight:600\">Amplitude ("
+                                            "dB)</span></p></body></html>"))
+        self.InterclickintervalmsButton.setText(_translate("MainWindow", "Inter-click interval"))
+        self.ClickspersecondButton.setText(_translate("MainWindow", "Clicks per second"))
+        self.CentroidfrequencykHzButton.setText(_translate("MainWindow", "Centroid Frequency"))
+        self.DirectionofarrivalButton.setText(_translate("MainWindow", "Direction of arrival"))
+        self.MainTab.setTabText(self.MainTab.indexOf(self.MainDisplayTab), _translate("MainWindow", "Main Display"))
+        self.UploadData.setText(_translate("MainWindow", "UPLOAD \n"
+                                                         " DATA"))
+        self.SelectFoldLab.setText(_translate("MainWindow", "Select project folder"))
+        self.MetricBrowseButton.setText(_translate("MainWindow", "Browse"))
+        #  self.SelectadateDropDown.setText(_translate("MainWindow", "All Days"))
+        self.SelectDateLab.setText(_translate("MainWindow", "Select dates"))
+        self.AllButtonMetrics.setText(_translate("MainWindow", "All"))
+        self.NightDayButton.setText(_translate("MainWindow", "Day/Night"))
+        self.PPMButton.setText(_translate("MainWindow", "Positive Porpoise Minute"))
+        self.TypeofCTButton.setText(_translate("MainWindow", "Type of CT"))
+        self.BehaviourButton.setText(_translate("MainWindow", "Behaviour"))
+        self.DisplayMetricsButton.setText(_translate("MainWindow", "UPDATE"))
+        self.ClearButton.setText(_translate("MainWindow", "CLEAR ALL"))
+        self.MainTab.setTabText(self.MainTab.indexOf(self.MetricsDisplayTab), _translate("MainWindow", "Metrics"))
+        self.MainTab.setTabText(self.MainTab.indexOf(self.TableDisplayTab), _translate("MainWindow", "Tables"))
+        self.menuMain_Display.setTitle(_translate("MainWindow", "Detector"))
+        # self.menuMetrics_Display.setTitle(_translate("MainWindow", "PorCC"))
+        self.menuClick_Trains.setTitle(_translate("MainWindow", "Click Trains"))
+        self.menuDownloads.setTitle(_translate("MainWindow", "Downloads"))
+        self.menuHelp.setTitle(_translate("MainWindow", "Help"))
+        self.MenuSetDetector.setText(_translate("MainWindow", "Settings Detector"))
+        # self.MenuSetPorCC.setText(_translate("MainWindow", "Settings PorCC"))
+        self.MenuNewCT.setText(_translate("MainWindow", "New CT Project"))
+        self.MenuOpenCT.setText(_translate("MainWindow", "Open existing project"))
+        item = self.MetricsTable.horizontalHeaderItem(0)
+        item.setText(_translate("MainWindow", "Date"))
+        item = self.MetricsTable.horizontalHeaderItem(1)
+        item.setText(_translate("MainWindow", "NBHF"))
+        item = self.MetricsTable.horizontalHeaderItem(2)
+        item.setText(_translate("MainWindow", "LQNBHF"))
+        item = self.MetricsTable.horizontalHeaderItem(3)
+        item.setText(_translate("MainWindow", "NonNBHF"))
+        item = self.MetricsTable.horizontalHeaderItem(4)
+        item.setText(_translate("MainWindow", "Sonar"))
+        item = self.MetricsTable.horizontalHeaderItem(5)
+        item.setText(_translate("MainWindow", "Orient"))
+        item = self.MetricsTable.horizontalHeaderItem(6)
+        item.setText(_translate("MainWindow", "Forage"))
+        item = self.MetricsTable.horizontalHeaderItem(7)
+        item.setText(_translate("MainWindow", "Social"))
+        item = self.MetricsTable.horizontalHeaderItem(8)
+        item.setText(_translate("MainWindow", "Unknown"))
+        item = self.MetricsTable.horizontalHeaderItem(9)
+        item.setText(_translate("MainWindow", "Day"))
+        item = self.MetricsTable.horizontalHeaderItem(10)
+        item.setText(_translate("MainWindow", "Night"))
+        item = self.MetricsTable.horizontalHeaderItem(11)
+        item.setText(_translate("MainWindow", "Calf"))
+        # self.Update = UpdateCT.UpdatePlots
+
+    def MetricsOK(self):
         pass
-        # self.MenuPorCCF.close()
-        # # TODO Message that it is working
-        # # f = uifigure('Position', [300 300 300 150])
-        # # UpdateMes = uilabel(f, 'Position', [10 10 280 130])
-        # # Message = 'PorCC is at work! \n A message will pop up when ready.'
-        # ##UpdateMes.Text = Message
-        # # uialert(UIFigure, Message, 'PorCC Running', 'Icon', 'warning')
-        # # TabGroup.Enable = 'off'
-        #
-        # ##Create a table with 0s to make it faster and more effective
-        # if HydN > 1:
-        #     ColunmNames = ['ID', 'Date', 'start_sample', 'Duration', 'Amp', 'PF', 'CF' \
-        #                'BW', 'RMSBW', 'Bearing']
-        # else:
-        #     ColunmNames = ['ID', 'Date', 'start_sample', 'Duration', 'Amp', 'PF', 'CF' \
-        #                'BW', 'RMSBW', 'ICI', 'CT', 'InFile', 'ClickN', 'Class']
-        #
-        #         # end
-        # CP = pd.DataFrame(0, index=np.arange(2000000), columns=ColunmNames)
-        #
-        # # Get list of all subfolders. \
-        # allSubFolders = os.listdir(SelectedFolder) # wasgenpath(SelectedFolder)
-        # # Parse into a cell array. \
-        # remain = allSubFolders
-        # listOfFolderNames = []
-        # WhileVar = 1
-        # while WhileVar == 1:
-        #     [singleSubFolder, remain] = [int(x) for x in remain.split('') if x.strip()]
-        #     if not singleSubFolder:
-        #         WhileVar = 2
-        #     # end
-        #     listOfFolderNames = [listOfFolderNames, singleSubFolder]
-        # # end
-        # numberOfFolders = len(listOfFolderNames)
-        #
-        # # Get this folder and print it out.
-        # thisFolder = listOfFolderNames[1]
-        #
-        # # how many binary files in this folder
-        # clickfiles = self.findBinaryFiles(thisFolder)
-        # # Now we have a list of all files in this folder.
-        # NumberBinaryFiles = len(clickfiles)
-        #
-        # # Running the classifier FFT = 512 RowN = 0 for p in NumberBinaryFiles: # each pgdf file click_id = 0  #
-        # Click Id within the pgdf file # print out because lots of files and script takes a very long time. #
-        # Message = strcat('Loading file pgdf', ' ', num2str(p), ' of a total of  ', ' ', num2str(length(
-        # clickfiles))) # UpdateMes.Text = Message
-        #
-        #     # LOAD THE FILES
-        #     fileName = SelectedFolder + '/' + clickfiles[p]
-        #    # fid = fopen(fileName, 'r', 'ieee-be.l64')
-        #
-        #     ### TRY THIS
-        #     fid = open(fileName, 'rb')
-        #     # dim = np.fromfile(fid, dtype='>u4')
-        #
-        #     # initialize variables
-        #     prevPos = -1
-        #     Cols = []
-        #     fileInfo = ['readModuleHeader', 'readModuleFooter']
-        #     fileInfo.iloc[0,0] = self.readStdModuleHeader(fid) # @readStdModuleHeader
-        #     fileInfo.iloc[0,1] = self.readStdModuleFooter(fid) # @readStdModuleFooter
-        #
-        #     # Create a file with information about each file
-        #     # FilesInfo.FilNum(p, 1) = p
-        #     # FilesInfo.FilName(p, 1) = filename
-        #     # FilesInfo.Fs(p, 1) = Fs
-        #     # FilesInfo.Lat(p, 1) = Lat
-        #     # FilesInfo.Long(p, 1) = Long
-        #     # Main loop = goes into.pgdf files to find clicks
-        #     while 1:
-        #         # if for some reason we're stuck at one byte, warn the user and abort
-        #         pos = fid.tell() # ftell()
-        #         if pos == prevPos:
-        #             print('File stuck at byte %d', pos)
-        #             break
-        #         # end
-        #         prevPos = pos
-        #
-        #         # read in the length of the object and the type. Move the menufile
-        #         # pointer back to the beginning of the length variable, and switch
-        #         # on the type. If we couldn't read nextLen or nextType, assume
-        #         # that means we've hit the end of the menufile and break out of loop
-        #         # [~, nL] = fread(fid, 1, 'int32')
-        #         # [nextType, nT] = fread(fid, 1, 'int32')
-        #         nLtemp = fid.read(1)
-        #         nL = nLtemp[0]
-        #         NTemp = fid.read(2)
-        #         nT = NTemp[0]
-        #         nextType = NTemp[1]
-        #         if nL == 0 or nT == 0:
-        #             break
-        #
-        #         fid.seek(-8, 0)
-        #
-        #         if nextType == -1:
-        #             # Case 1: MenuFile Header.Read in the menufile header, and then set the function handles
-        #             # depending on what type of data the binary menufile holds. The module
-        #             # type is typically specified in the package class that extends PamControlledUnit, and is a
-        #             # string unique to that module.
-        #             fileInfo.fileHeader = self.readFileHeader(fid)
-        #             Type = fileInfo.fileHeader.moduleType
-        #             # Click Detector Module
-        #                 if Type == 'Click Detector':
-        #                     NewCase = fileInfo.fileHeader.streamName
-        #                         if NewCase == 'Clicks':
-        #                             fileInfo.objectType = 1000
-        #                             fileInfo.readModuleData = self.readClickData()
-        #                             fileInfo.readModuleFooter = self.readClickFooter()
-        #                         elif NewCase == 'Trigger Background':
-        #                             fileInfo.objectType = 0
-        #                             fileInfo.readModuleData = self.readClickTriggerData()
-        #                             fileInfo.readModuleHeader = self.readClickTriggerHeader()
-        #                     # end
-        #
-        #                 else:
-        #                     print(['Don''t recognize type ' fileInfo.fileHeader.moduleType '.  Aborting load'])
-        #                     break
-        #             # end
-        #
-        #         elif nextType == -2:
-        #             # Case 2: MenuFile Footer.The menufile version should have been set
-        #             # when we read the menufile header. If the menufile header is empty,
-        #             # something has gone wrong so warn the user and exit
-        #             if not fileInfo.fileHeader:
-        #                 print('Error: found file footer before file header.  Aborting load')
-        #                 break
-        #             # end
-        #             fileInfo.fileFooter = readFileFooterInfo(fid, fileInfo.fileHeader.fileFormat)
-        #             # Case 3: Module Header. The correct function handle should have
-        #             # been set when we read the menufile header. If the menufile header
-        #             # is empty, something has gone wrong so warn the user and exit
-        #
-        #         elif nextType == -3:
-        #             if not fileInfo.fileHeader:
-        #                 print('Error: found module header before file header.  Aborting load')
-        #                 break
-        #
-        #             fileInfo.moduleHeader = fileInfo.readModuleHeader(fid)
-        #         elif nextType == -4:
-        #             if not fileInfo.fileHeader:
-        #                 print('Error: found module footer before file header.  Aborting load')
-        #                 break
-        #
-        #             fileInfo.moduleFooter = fileInfo.readModuleFooter(fid)
-        #         elif nextType == -5:
-        #             # Case 5: Data. The correct function handle should have been set when we
-        #             # read the menufile header. If the menufile header is empty something
-        #             # has gone wrong so warn the user and exit
-        #         else:
-        #             if not fileInfo.fileHeader:
-        #                 print('Error: found data before file header.  Aborting load')
-        #                 break
-        #             # end
-        #             dataPoint = self.readPamData(fid, fileInfo)
-        #             # check if the datapoint has a click in it
-        #             a = isfield(dataPoint, 'wave')
-        #             if a == 0:
-        #                 continue
-        #
-        #           # If there are two hydrophones, use the hydrophone where the click
-        #         # impinges first, because it is expected to be of the best quality
-        #         if HydN > 1:
-        #             if dataPoint.delays < 0:
-        #                 click = dataPoint.wave[:, 1]
-        #             else:
-        #                 click = dataPoint.wave[:, 2]
-        #             # end
-        #         else:
-        #             click = dataPoint.wave
-        #         # end
-        #         # Start counting clicks (impulsive sound), regardless of whether we use it
-        #         click_id = click_id + 1
-        #
-        # # PorCC Classification # PF = peak frequency, CF = centroid frequency # PSD = power spectrum, f = frequency
-        # [PSD, f, CF_Val, PF_Val] = self.CentroidAndPeakFrq1(click, FFT, Fs) if 160000 > PF_Val > 100000 < CF_Val <
-        # 160000  # Møhl & Andersen, 1973 # RMS - BW = RMS bandwidth, ratio = PF / CF, BW = -3 dB bandwidth #
-        # duration = estimated using 80 #energy of the clip # Q = CF / RMSBW, XC = peak cross - correlation
-        # coefficient with a model click RMSBW_Val = math.sqrt(sum((f - CF_Val)**2. * PSD**2) / sum(PSD**2))) / 1000
-        # durationV = self.clickDuration(click) Q_Val = (CF_Val / RMSBW_Val) / 1000 Ratio_Val = PF_Val/ CF_Val XCorr
-        # = np.correlate(click, click_model) XCoeff = XCorr[0] XC_Val = max(XCoeff) BW_Val = powerbw(click,
-        # Fs) / 1000 if Q_Val >= 4 and durationV < 450: # estimate probabilities for HQ ProbHQ = glmval(logitCoefHQ,
-        # [Q_Val durationV], 'logit') # assign each clip to a category if ProbHQ >= ThresHQ: Porps_Val = 1  # HQ
-        # click else: ProbLQ = glmval(logitCoefLQ, [Q_Val durationV Ratio_Val XC_Val CF_Val BW_Val], 'logit')  # Log
-        # Model 2 if ProbLQ > ThresLQ: Porps_Val = 2  # LQ click else: Porps_Val = 3  # noise # end # end else:
-        # Porps_Val = 3  # if Q < 4 and duration > 450 # end else: Porps_Val = 3  # if peak is outside porpoise range
-        # end #if Porps_Val... # store in ClickParameters if Class HQ or LQ if Porps_Val == 1 or Porps_Val == 2 or
-        # Porps_Val == 3: RowN = RowN + 1  # our ID ###### save HQ & LQ clicks #####% CP.ID[RowN] = RowN CP.Date[
-        # RowN] = dataPoint.date CP.start_sample[RowN] = dataPoint.start_sample CP.Duration[RowN] = durationV
-        # ##DURATION CP.Amp_Val = self.clickAmplitude(click, HydSens, Gain, DAQpp) CP.Amp[RowN] = Amp_Val  # MAXIMUM
-        # AMPLITUDE CP.PF[RowN] = PF_Val  # PEAK FREQUENCY CP.CF[RowN] = CF_Val  # CENTROID FREQUENCY CP.BW[RowN] =
-        # BW_Val  # BANDWIDTH - 3 dB CP.RMSBW[RowN] = RMSBW_Val  # RMS - BW if HydN > 1:  # and exist(
-        # dataPoint.delays) CP.Bearing[RowN] = dataPoint.angles * 57.2958 # end if RowN == 1: ici = 0 else: ici = (
-        # CP.start_sample[RowN] - CP.start_sample[RowN-1])/(Fs/1000) #in microseconds if ici < 0: ici = (CP.Date[RowN]
-        # - CP.Date[RowN-]) * 120 * 24 #in milliseconds # end # end P.ICI[RowN] = ici # PORPOISE OR NOT? CT[RowN] = 0
-        # b = fileName[end - 56:-1] InFile[RowN] = b ClickN[RowN] = click_id Class[RowN] = Porps_Val # end if
-        # Porps_Val ~ = 3 # end switch # end # while (1) fclose(fid) # end # for Binary files
-        #
-        #     ###### Remove the ends
-        #     ID[RowN+1:-1] = []
-        #     Date[RowN+1:-1] = []
-        #     start_sample[RowN+1:-1] = []
-        #     Duration[RowN+1:-1] = []  ##DURATION
-        #     Amp[RowN+1:-1] = []   # MAXIMUM AMPLITUDE
-        #     PF[RowN+1:-1] = []  # PEAK FREQUENCY
-        #     CF[RowN+1:-1] = []   # CENTROID FREQUENCY
-        #     BW[RowN+1:-1] = []  # BANDWIDTH - 3 dB
-        #     RMSBW[RowN+1:-1] = []
-        #     if RowN < 2000000:
-        #         ICI[RowN+1:-1] = []
-        #     else:
-        #         ICI[RowN+1:-1] = []              # end
-        #     CT[RowN+1:-1] = []
-        #     InFile[RowN+1:-1] = []
-        #     ClickN[RowN+1:-1] = []
-        #     Class[RowN+1:-1] = []
-        #
-        # if HydN == 1: ClickParameters = table(ID, Date, start_sample, Duration, Amp, PF, CF, BW, RMSBW, ICI, CT,
-        # InFile, ClickN, Class) elif HydN == 2: Bearing[RowN+1:-1] = [] ClickParameters = table(ID, Date,
-        # start_sample, Duration, Amp, PF, CF, BW, RMSBW, ICI, Bearing, CT, InFile, ClickN, Class) # end # S CP[
-        # RowN+1:-1] = [] ###REMOVE CLICKS WITH THE SAME DATE # ZeroRep = find(diff(ClickParameters.Date) == 0) # if
-        # size(ZeroRep, 1) > 0 # d = 1 # while size(d, 1) > 0 # a = find(diff(ClickParameters.Date) == 0) # b = find(
-        # diff(ClickParameters.Amp) < -3) # c = arrayfun( @ (x) find(b == x, 1), a, 'UniformOutput', False) # c =
-        # cell2mat(c) # d = b(c) # d = d + 1 ## remove the same date but amp < first # ClickParameters(d,
-        # :) = [] # end # d = 1 # while size(d, 1) > 0 # a = find(diff(ClickParameters.Date) == 0) # b = find(diff(
-        # ClickParameters.Amp) > 3) # c = arrayfun( @ (x) find(b == x, 1), a, 'UniformOutput', false) # c = cell2mat(
-        # c) # d = b(c) ##remove the same date but amp < first # ClickParameters(d,:) = [] # end # ICI = diff(
-        # ClickParameters.start_sample) / (Fs / 1000) # ClickParameters.ICI(1, 1) = 0 # ClickParameters.ICI(2: end,
-        # 1) = ICI # else # ICI = diff(ClickParameters.start_sample) / (Fs / 1000) # ClickParameters.ICI(1,
-        # 1) = 0 # ClickParameters.ICI(2: end, 1) = ICI # end
-        #
-        # # ICI CP = self.NewICI(self, CP, Fs) DateTime = strftime(CP.Date.loc[1]) yyyy = DateTime[8:11] mmm =
-        # DateTime[4:6] dd = DateTime[1:2] hh = DateTime[13:14] mm = DateTime[16:17] ss = DateTime[19:20] DateTimeEnd
-        # = strftime(CP.Date.loc[-1]) hhEnd = DateTimeEnd[13:14] mmEnd = DateTimeEnd[16:17] ssEnd = DateTimeEnd[
-        # 19:20] FileDateTimePar = strcat(SelectedFolder, '\ClickParameters', yyyy, mmm, dd, '_', hh, mm, ss, '_',
-        # hhEnd, mmEnd, ssEnd, '.mat') ClickParameters = self.CP save(FileDateTimePar, 'ClickParameters')
-        #
-        #         # message to let know it's finished
-        #         # message = sprintf('The file was now generated, you can start seeing the data.')
-        #         # uialert(UIFigure, message, 'Done!', 'Icon', 'success')
-        #         # TabGroup.Enable = 'on'
-        #         # end Of click OK Button for PorCC
-
-    #
-    # def MetricsOK(self):
-    #     pass
     # #     # search dates within the selected folder
     # #     # Name of folders are 20150812 -> 12 Aug 2015
     # #     # Create a list of days and display in dropdown button
@@ -1601,10 +1501,10 @@ class Ui_MainWindow(object):
     # #         ## CTInfo NBHF decision
     # #         RowNCT = RowNCT + 2
     # #         # CT types
-    # #         NBHF = CTInfo[CTInfo.Species == 'NBHF']
-    # #         LQNBHF = CTInfo[CTInfo.Species == 'LQ-NBHF']
-    # #         NonNBHF = CTInfo(strcmp({CTInfo.Species}, 'Non-NBHF'))
-    # #         Sonar = CTInfo(strcmp({CTInfo.Species}, 'Sonar'))
+    # #         NBHF = CTInfo[CTInfo.CTType == 'NBHF']
+    # #         LQNBHF = CTInfo[CTInfo.CTType == 'LQ-NBHF']
+    # #         NonNBHF = CTInfo(strcmp({CTInfo.CTType}, 'Noise'))
+    # #         Sonar = CTInfo(strcmp({CTInfo.CTType}, 'Sonar'))
     # #         Orient = CTInfo(strcmp({CTInfo.Behav}, 'Orientation'))
     # #         Forage = CTInfo(strcmp({CTInfo.Behav}, 'Foraging'))
     # #         Comm = CTInfo(strcmp({CTInfo.Behav}, 'Socialising'))
@@ -1755,148 +1655,14 @@ class Ui_MainWindow(object):
             # end
             self.CPMAxesTot.setGraphYLabel('Positive minutes')
 
-    # Translate
-    def retranslateUi(self, MainWindow):
-        _translate = QtCore.QCoreApplication.translate
-        MainWindow.setWindowTitle(_translate("MainWindow", "D-PorCCA"))
-        self.DateandtimeofCTLabel.setText(_translate("MainWindow", "12 Aug 2015, 12.35.32"))
-        self.DayNightTextLabel.setText(_translate("MainWindow",
-                                                  "<html><head/><body><p><span style=\" "
-                                                  "font-weight:600\">Day/Night</span></p></body></html>"))
-        self.DayLabel.setText(_translate("MainWindow", "Day"))
-        self.CTNumLabel.setText(_translate("MainWindow",
-                                           "<html><head/><body><p><span style=\" font-weight:600\">Click train number "
-                                           "(Total)</span></p></body></html>"))
-        self.CTForw.setText(_translate("MainWindow", ">"))
-        self.CTBack.setText(_translate("MainWindow", "<"))
-        self.TotalLabel.setText(_translate("MainWindow", "()"))
-        self.LengthText.setText(_translate("MainWindow",
-                                           "<html><head/><body><p><span style=\" "
-                                           "font-weight:600\">Length</span></p></body></html>"))
-        self.LengthLabel.setText(_translate("MainWindow", "20"))
-        self.SaveupdatesButton.setText(_translate("MainWindow", " Save \n"
-                                                                "updates"))
-        self.CTLabel.setText(_translate("MainWindow",
-                                        "<html><head/><body><p><span style=\" font-weight:600\">CT "
-                                        "Type</span></p></body></html>"))
-        self.CTTypeLabel.setText(_translate("MainWindow", "NBHF"))
-        self.BehavTextLabel.setText(_translate("MainWindow",
-                                               "<html><head/><body><p><span style=\" "
-                                               "font-weight:600\">Behaviour</span></p></body></html>"))
-        self.BehavLabel.setText(_translate("MainWindow", "Socialising"))
-        self.CalfTextLabel.setText(_translate("MainWindow",
-                                              "<html><head/><body><p><span style=\" "
-                                              "font-weight:600\">Calf</span></p></body></html>"))
-        self.CalfLabel.setText(_translate("MainWindow", "No"))
-        self.NoteLabel.setText(_translate("MainWindow",
-                                          "<html><head/><body><p><span style=\" "
-                                          "font-weight:600\">Notes</span></p></body></html>"))
-        self.SeeAddButton.setText(_translate("MainWindow", "Add/Modify"))
-        self.DateLabel.setText(_translate("MainWindow",
-                                          "<html><head/><body><p><span style=\" "
-                                          "font-weight:600\">Date</span></p></body></html>"))
-        self.ActionLabel.setText(_translate("MainWindow", "ACTIONS - CLICK TRAINS"))
-        self.ActionTextLabel.setText(_translate("MainWindow", "Display"))
-        self.AllButton.setText(_translate("MainWindow", "All"))
-        self.NBHFButton.setText(_translate("MainWindow", "NBHF"))
-        self.IndCTLabel.setText(_translate("MainWindow", "Individual click trains - 3D"))
-        self.IndClicksAnd3D.setText(_translate("MainWindow", "Click train in 3D"))
-        self.SpectrogramButton.setText(_translate("MainWindow", "Spectrogram"))
-        self.ValidateLab.setText(_translate("MainWindow", "Validation/changes"))
-        self.ValButton.setText(_translate("MainWindow", "Validate"))
-        # self.BehaviourDropDown.setText(_translate("MainWindow", "Select"))
-        # self.CTTypeDropDown.setText(_translate("MainWindow", "Select"))
-        self.ValTypeLab.setText(_translate("MainWindow", "CT Type"))
-        self.ValBehavLab.setText(_translate("MainWindow", "Behaviour"))
-        self.AmplitudeDB.setText(_translate("MainWindow",
-                                            "<html><head/><body><p><span style=\" font-weight:600\">Amplitude ("
-                                            "dB)</span></p></body></html>"))
-        self.InterclickintervalmsButton.setText(_translate("MainWindow", "Inter-click interval"))
-        self.ClickspersecondButton.setText(_translate("MainWindow", "Clicks per second"))
-        self.CentroidfrequencykHzButton.setText(_translate("MainWindow", "Centroid Frequency"))
-        self.DirectionofarrivalButton.setText(_translate("MainWindow", "Direction of arrival"))
-        self.MainTab.setTabText(self.MainTab.indexOf(self.MainDisplayTab), _translate("MainWindow", "Main Display"))
-        self.UploadData.setText(_translate("MainWindow", "UPLOAD \n"
-                                                         " DATA"))
-        self.SelectFoldLab.setText(_translate("MainWindow", "Select project folder"))
-        self.MetricBrowseButton.setText(_translate("MainWindow", "Browse"))
-        #  self.SelectadateDropDown.setText(_translate("MainWindow", "All Days"))
-        self.SelectDateLab.setText(_translate("MainWindow", "Select dates"))
-        self.AllButtonMetrics.setText(_translate("MainWindow", "All"))
-        self.NightDayButton.setText(_translate("MainWindow", "Day/Night"))
-        self.PPMButton.setText(_translate("MainWindow", "Positive Porpoise Minute"))
-        self.TypeofCTButton.setText(_translate("MainWindow", "Type of CT"))
-        self.BehaviourButton.setText(_translate("MainWindow", "Behaviour"))
-        self.DisplayMetricsButton.setText(_translate("MainWindow", "UPDATE"))
-        self.ClearButton.setText(_translate("MainWindow", "CLEAR ALL"))
-        self.MainTab.setTabText(self.MainTab.indexOf(self.MetricsDisplayTab), _translate("MainWindow", "Metrics"))
-        self.MainTab.setTabText(self.MainTab.indexOf(self.TableDisplayTab), _translate("MainWindow", "Tables"))
-        self.menuMain_Display.setTitle(_translate("MainWindow", "Detector"))
-        # self.menuMetrics_Display.setTitle(_translate("MainWindow", "PorCC"))
-        self.menuClick_Trains.setTitle(_translate("MainWindow", "Click Trains"))
-        self.menuDownloads.setTitle(_translate("MainWindow", "Downloads"))
-        self.menuHelp.setTitle(_translate("MainWindow", "Help"))
-        self.MenuSetDetector.setText(_translate("MainWindow", "Settings Detector"))
-        # self.MenuSetPorCC.setText(_translate("MainWindow", "Settings PorCC"))
-        self.MenuNewCT.setText(_translate("MainWindow", "New CT Project"))
-        self.MenuOpenCT.setText(_translate("MainWindow", "Open existing project"))
-        item = self.MetricsTable.horizontalHeaderItem(0)
-        item.setText(_translate("MainWindow", "Date"))
-        item = self.MetricsTable.horizontalHeaderItem(1)
-        item.setText(_translate("MainWindow", "NBHF"))
-        item = self.MetricsTable.horizontalHeaderItem(2)
-        item.setText(_translate("MainWindow", "LQNBHF"))
-        item = self.MetricsTable.horizontalHeaderItem(3)
-        item.setText(_translate("MainWindow", "NonNBHF"))
-        item = self.MetricsTable.horizontalHeaderItem(4)
-        item.setText(_translate("MainWindow", "Sonar"))
-        item = self.MetricsTable.horizontalHeaderItem(5)
-        item.setText(_translate("MainWindow", "Orient"))
-        item = self.MetricsTable.horizontalHeaderItem(6)
-        item.setText(_translate("MainWindow", "Forage"))
-        item = self.MetricsTable.horizontalHeaderItem(7)
-        item.setText(_translate("MainWindow", "Social"))
-        item = self.MetricsTable.horizontalHeaderItem(8)
-        item.setText(_translate("MainWindow", "Unknown"))
-        item = self.MetricsTable.horizontalHeaderItem(9)
-        item.setText(_translate("MainWindow", "Day"))
-        item = self.MetricsTable.horizontalHeaderItem(10)
-        item.setText(_translate("MainWindow", "Night"))
-        item = self.MetricsTable.horizontalHeaderItem(11)
-        item.setText(_translate("MainWindow", "Calf"))
-        # self.Update = UpdateCT.UpdatePlots
-
-    """
-    Display buttons
-    """
-
-    def CTBackCB(self):
-        NumCT = int(self.CTNumD.text())
-        First = CTInfo['CTNum'].iloc[0]
-        if NumCT > First:
-            self.AmpAxesCT.clear()
-            self.ICIAxesCT.clear()
-            self.FreqAxesCT.clear()
-            RowCT = CTInfo[CTInfo.CTNum == NumCT].index[0]
-            NumCT = int(CTInfo.CTNum[RowCT - 1])
-            self.UpdateCT(NumCT, CP, CTInfo)
-
-    def CTForwCB(self):
-        NumCT = int(self.CTNumD.text())
-        Tot = CTInfo['CTNum'].iloc[-1]
-        if NumCT == Tot:
-            a = 1  # do nothing
-        elif NumCT < Tot:
-            self.AmpAxesCT.clear()
-            self.ICIAxesCT.clear()
-            self.FreqAxesCT.clear()
-            RowCT = CTInfo[CTInfo.CTNum == NumCT].index[0]
-            # print(RowCT)
-            NumCT = int(CTInfo.CTNum[RowCT + 1])
-            # print(NumCT)
-            self.UpdateCT(NumCT, CP, CTInfo)
-
     def UpdateCT(self, NumCT, Cp, myCTInfo):
+        """
+            Displays the click train number NumCT
+
+            Cp = pandas dataframe containing information about all clicks detected in the recordings
+            myCTInfo = contains summary data of all click trains
+
+        """
         global CTTemp
         CTTemp = Cp[Cp.CT == NumCT]
         # print(CTTemp)
@@ -1914,7 +1680,7 @@ class Ui_MainWindow(object):
             CT1HQ = CTTemp[CTTemp['pyPorCC'] == 1]
             CT1LQ = CTTemp[CTTemp['pyPorCC'] == 2]
             self.CTNumD.setText(str(NumCT))
-            self.CTTypeLabel.setText(str(myCTInfo.Species[myCTInfo.CTNum == NumCT].values[0]))
+            self.CTTypeLabel.setText(str(myCTInfo.CTType[myCTInfo.CTNum == NumCT].values[0]))
             self.DateandtimeofCTLabel.setText(str(myCTInfo.Date[myCTInfo.CTNum == NumCT].values[0]))
             self.LengthLabel.setText(str(len(CTTemp)))
             self.BehavLabel.setText(str(myCTInfo.Behav[myCTInfo.CTNum == NumCT].values[0]))
@@ -1986,11 +1752,44 @@ class Ui_MainWindow(object):
                 self.FreqAxesCT.setXRange(0, max(CTTemp.SumMs) + 0.1)
                 self.FreqAxesCT.setYRange(50, 180)
 
-    """
-    Buttons
-    """
+    # Display buttons
+    def CTBackCB(self):
+        """
+            Displays the previous click train
+        """
+        NumCT = int(self.CTNumD.text())
+        First = CTInfo['CTNum'].iloc[0]
+        if NumCT > First:
+            self.AmpAxesCT.clear()
+            self.ICIAxesCT.clear()
+            self.FreqAxesCT.clear()
+            RowCT = CTInfo[CTInfo.CTNum == NumCT].index[0]
+            NumCT = int(CTInfo.CTNum[RowCT - 1])
+            self.UpdateCT(NumCT, CP, CTInfo)
+
+    def CTForwCB(self):
+        """
+            Displays the next click train
+        """
+        NumCT = int(self.CTNumD.text())
+        Tot = CTInfo['CTNum'].iloc[-1]
+        if NumCT == Tot:
+            a = 1  # do nothing
+        elif NumCT < Tot:
+            self.AmpAxesCT.clear()
+            self.ICIAxesCT.clear()
+            self.FreqAxesCT.clear()
+            RowCT = CTInfo[CTInfo.CTNum == NumCT].index[0]
+            # print(RowCT)
+            NumCT = int(CTInfo.CTNum[RowCT + 1])
+            # print(NumCT)
+            self.UpdateCT(NumCT, CP, CTInfo)
 
     def NotesCT(self):
+        """
+            Pops up a window where the user can write comments about the click train, which is then saved into the
+            CTInfo dataframe, which contains summary information of all click trains.
+        """
         global CTInfo
         CTNum = int(self.CTNumD.text())
         Notes = CTInfo.Notes[CTInfo.CTNum == CTNum].values[0]
@@ -2100,6 +1899,9 @@ class Ui_MainWindow(object):
         self.Plot3D.show()
 
     def CreateSpectrogram(self):
+        """
+            Creates a pop up figure and plots the waveform and spectrogram of the click train
+        """
         global CTTemp, Fs
         self.SpectWindow.setGeometry(200, 200, 1000, 600)
         self.SpectWindow.setWindowTitle('Spectrogram')
@@ -2162,6 +1964,9 @@ class Ui_MainWindow(object):
         # 150), (255, 255, 0), (255, 0, 100)]) self.SpectAxes.setColorMap(ColorMap) self.SpectWindow.show()
 
     def UpdateSpect(self):
+        """
+            Updates the spectrogram based on a series of parameters provided by the user.
+        """
         NFFT = int(self.FFTSpec.text())  # length of the windowing segments
         Overlap = int(self.OverSpec.text())
         window = signal.get_window('hann', NFFT)
@@ -2176,28 +1981,29 @@ class Ui_MainWindow(object):
         self.SpectAxes.setColorMap(ColorMap)
 
     def Validate(self):
+        """
+            Allows the user to change the classification of the click train manually.
+        """
         global CTInfo
         CTNum = int(self.CTNumD.text())
-        Species = self.CTTypeDropDown.currentText()
+        CTType = self.CTTypeDropDown.currentText()
         Behaviour = self.BehaviourDropDown.currentText()
-        # if Species == 'Select' and Behaviour == 'Select':
+        # if CTType == 'Select' and Behaviour == 'Select':
         #     a = 1
         # el
-        if not Species == 'Select' and Behaviour == 'Select':
-            CTInfo.Species[CTInfo.CTNum == CTNum] = Species
-            self.CTTypeLabel.setText(str(Species))
-        elif Species == 'Select' and not Behaviour == 'Select':
+        if not CTType == 'Select' and Behaviour == 'Select':
+            CTInfo.CTType[CTInfo.CTNum == CTNum] = CTType
+            self.CTTypeLabel.setText(str(CTType))
+        elif CTType == 'Select' and not Behaviour == 'Select':
             CTInfo.Behav[CTInfo.CTNum == CTNum] = Behaviour
             self.BehavLabel.setText(str(Behaviour))
-        elif not Species == 'Select' and not Behaviour == 'Select':
-            CTInfo.Species[CTInfo.CTNum == CTNum] = Species
+        elif not CTType == 'Select' and not Behaviour == 'Select':
+            CTInfo.CTType[CTInfo.CTNum == CTNum] = CTType
             CTInfo.Behav[CTInfo.CTNum == CTNum] = Behaviour
             self.BehavLabel.setText(str(Behaviour))
-            self.CTTypeLabel.setText(str(Species))
+            self.CTTypeLabel.setText(str(CTType))
 
-    """
-    METRICS STUFF
-    """
+    # METRICS STUFF
 
     def MetricsBrowse(self):
         global BrowseSelectedFolder
@@ -2269,7 +2075,7 @@ class Ui_MainWindow(object):
                 #         CP = pd.read_csv(ClickParFile)
                 #         CTInfo.CT = int(CTInfo.CT)
                 #         # check the positive min
-                #         AllNBHF = CTInfo[CTInfo.Species != 'Non-NBHF']
+                #         AllNBHF = CTInfo[CTInfo.CTType != 'Noise']
                 #         for i in range(0, len(AllNBHF)):
                 #             Time = AllNBHF.Date.iloc[i]
                 #             Time = str(Time)
@@ -2285,122 +2091,6 @@ class Ui_MainWindow(object):
     """
     MENUS
     """
-
-    def OpenPorCCSetMenu(self):
-        pass
-        # self.MenuPorCCF.setGeometry(200, 200, 360, 550)
-        # self.MenuPorCCF.setWindowTitle('PorCC Settings')
-        # # Create panel within figure
-        # self.PorCCSetPan.setFrameShape(QtWidgets.QFrame.StyledPanel)
-        # self.PorCCSetPan.setGeometry(10, 10, 340, 530)
-        # self.SelectFolderText.setGeometry(20, 10, 100, 30)
-        # self.SelectFolderText.setText('Select Folder')
-        # # Edit path
-        # self.FolderPathPorCC.setGeometry(20, 40, 300, 30)
-        # self.FolderPathPorCC.setText('C://')
-        # # Dropdown
-        # self.FileDD.setGeometry(150, 75, 170, 30)
-        # self.FileDD.addItem("PAMGuard output")
-        # self.FileDD.addItem("SoundTrap output")
-        # #   self.FileDD.activated[str].connect(self.style_choice)
-        # self.DataTypeLabel.setGeometry(20, 75, 100, 30)
-        # self.DataTypeLabel.setText('Data type')
-        # # browse
-        # self.BrowsePorCC.setGeometry(220, 115, 100, 30)
-        # self.BrowsePorCC.setText('Browse')
-        # self.BrowsePorCC.clicked.connect(self.BrowseButtonPorCC)
-        #
-        # # PARAMETERS PANEL
-        # self.ParPanPorCC.setGeometry(10, 160, 320, 170)
-        # self.ParPanPorCC.setFrameShape(QtWidgets.QFrame.StyledPanel)
-        # # HydrophoneS section
-        # self.HydLabel.setText('Number of Hydrophones')
-        # self.HydLabel.setGeometry(10, 10, 180, 25)
-        # self.EditHydN.setGeometry(210, 10, 50, 25)
-        # self.EditHydN.setText("1")
-        # # Sampling Frequency
-        # self.SFreqLab.setText('Sampling Frequency')
-        # self.SFreqLab.setGeometry(10, 40, 180, 25)
-        # self.FsEdit.setText('576')
-        # self.FsEdit.setGeometry(210, 40, 50, 25)
-        # self.kHzLab.setText('kHz')
-        # self.kHzLab.setGeometry(270, 40, 30, 25)
-        # # Sensitivity
-        # self.SensLab = QtWidgets.QLabel(self.ParPanPorCC)
-        # self.SensLab.setText('Hyd Sensitivity')
-        # self.SensLab.setGeometry(10, 70, 180, 25)
-        # # self.SensEdit = QtWidgets.QLineEdit(self.ParPanPorCC)
-        # self.SensEdit.setText('-172')
-        # self.SensEdit.setGeometry(210, 70, 50, 25)
-        # self.dBLab = QtWidgets.QLabel(self.ParPanPorCC)
-        # self.dBLab.setText('dB')
-        # self.dBLab.setGeometry(270, 70, 30, 25)
-        # # Gain
-        # self.GainLab.setText('Gain')
-        # self.GainLab.setGeometry(10, 100, 180, 25)
-        # self.GainEdit.setText('0')
-        # self.GainEdit.setGeometry(210, 100, 50, 25)
-        # self.dBLab2.setText('dB')
-        # self.dBLab2.setGeometry(270, 100, 30, 25)
-        # # DAQ Peak to Peak (Clipping level)
-        # self.DAQLabPorCC.setText('DAQ pp Clipping level')
-        # self.DAQLabPorCC.setGeometry(10, 130, 180, 25)
-        # self.DAQEditPorCC.setText('2')
-        # self.DAQEditPorCC.setGeometry(210, 130, 50, 25)
-        # self.dBLab.setText('Volts')
-        # self.dBLab.setGeometry(270, 130, 30, 25)
-        # # Classifier panel
-        # self.ProbPan.setFrameShape(QtWidgets.QFrame.StyledPanel)
-        # self.ProbPan.setGeometry(10, 340, 320, 140)
-        # # HQ
-        # self.HQ.setText('Prob threshold')
-        # self.HQ.setGeometry(10, 10, 100, 25)
-        # self.HQThres.setText('0.999999')
-        # self.HQThres.setGeometry(170, 10, 100, 25)
-        # self.HQLab.setText('HQ')
-        # self.HQLab.setGeometry(280, 10, 50, 25)
-        # # LQ
-        # self.LQ.setText('Prob threshold')
-        # self.LQ.setGeometry(10, 50, 100, 25)
-        # self.LQThres.setText('0.6')
-        # self.LQThres.setGeometry(170, 50, 100, 25)
-        # self.LQLab.setText('LQ')
-        # self.LQLab.setGeometry(280, 50, 50, 25)
-        # # Buttons
-        # # OK button
-        # self.OpenCTButton = QtWidgets.QPushButton(self.PorCCSetPan)
-        # self.OpenCTButton.setText('OK')
-        # self.OpenCTButton.setGeometry(40, 490, 100, 30)
-        # self.OpenCTButton.clicked.connect(self.OKButtonPorCC)
-        # # Cancel button
-        # self.OpenCTCancelButton = QtWidgets.QPushButton(self.PorCCSetPan)
-        # self.OpenCTCancelButton.setText('Cancel')
-        # self.OpenCTCancelButton.setGeometry(210, 490, 100, 30)
-        # self.OpenCTCancelButton.clicked.connect(self.CancelButtonPorCC)
-        # # Disable resize and show menu
-        # self.MenuPorCCF.setFixedSize(360, 550)
-        # self.MenuPorCCF.show()
-
-    def OKButtonPorCC(self):
-        pass
-        # DataType = self.FileDD.text()
-        #
-        # if DataType == 'SoundTrap output':
-        #     name = 'SoundTrap'
-        #     model = 1
-        #     serial_number = 67416073
-        #     Vpp = 2
-        #     hydrophone = pyhy.SoundTrapHF(name, model, serial_number, Vpp)
-        #     # clicks_df = hydrophone.read_HFclicks(sound_folder_path)
-        #
-        # # TODO make the OK PorCC function
-
-    def CancelButtonPorCC(self):
-        self.MenuPorCCF.close()
-
-    def ApplyButtonPorCC(self):
-        pass
-        # TODO make the apply PorCC function
 
     def OpenDetSetMenu(self):
         # TODO finish the menu
@@ -2831,6 +2521,9 @@ class Ui_MainWindow(object):
         self.FolderPathPorCC.setText(SelectedFolderPorCC)
 
     def NewCTMenu(self):
+        """
+            Creates a menu for a new click train project
+        """
         self.NewCTFig.setGeometry(100, 100, 360, 320)
         self.NewCTFig.setWindowTitle('New Project')
         self.NewCTFig.sizePolicy = 'Fixed'
@@ -2882,6 +2575,9 @@ class Ui_MainWindow(object):
         self.FolderPathNewCT.setText(SelectedFolderNewCT)
 
     def IdentifyCT(self):
+        """
+            Prepares the data to locate and classify click trains, which is done via ExtractPatterns() and CTType()
+        """
         global CP  # sset, srise
         self.NewCTFig.close()
         MainFolder = self.FolderPathNewCT.text()
@@ -2964,6 +2660,121 @@ class Ui_MainWindow(object):
         FullName = self.SelectedFolder + '/CTInfo.csv'
         CTInfo.to_csv(FullName)
 
+    def OpenPorCCSetMenu(self):
+        pass
+        # self.MenuPorCCF.setGeometry(200, 200, 360, 550)
+        # self.MenuPorCCF.setWindowTitle('PorCC Settings')
+        # # Create panel within figure
+        # self.PorCCSetPan.setFrameShape(QtWidgets.QFrame.StyledPanel)
+        # self.PorCCSetPan.setGeometry(10, 10, 340, 530)
+        # self.SelectFolderText.setGeometry(20, 10, 100, 30)
+        # self.SelectFolderText.setText('Select Folder')
+        # # Edit path
+        # self.FolderPathPorCC.setGeometry(20, 40, 300, 30)
+        # self.FolderPathPorCC.setText('C://')
+        # # Dropdown
+        # self.FileDD.setGeometry(150, 75, 170, 30)
+        # self.FileDD.addItem("PAMGuard output")
+        # self.FileDD.addItem("SoundTrap output")
+        # #   self.FileDD.activated[str].connect(self.style_choice)
+        # self.DataTypeLabel.setGeometry(20, 75, 100, 30)
+        # self.DataTypeLabel.setText('Data type')
+        # # browse
+        # self.BrowsePorCC.setGeometry(220, 115, 100, 30)
+        # self.BrowsePorCC.setText('Browse')
+        # self.BrowsePorCC.clicked.connect(self.BrowseButtonPorCC)
+        #
+        # # PARAMETERS PANEL
+        # self.ParPanPorCC.setGeometry(10, 160, 320, 170)
+        # self.ParPanPorCC.setFrameShape(QtWidgets.QFrame.StyledPanel)
+        # # HydrophoneS section
+        # self.HydLabel.setText('Number of Hydrophones')
+        # self.HydLabel.setGeometry(10, 10, 180, 25)
+        # self.EditHydN.setGeometry(210, 10, 50, 25)
+        # self.EditHydN.setText("1")
+        # # Sampling Frequency
+        # self.SFreqLab.setText('Sampling Frequency')
+        # self.SFreqLab.setGeometry(10, 40, 180, 25)
+        # self.FsEdit.setText('576')
+        # self.FsEdit.setGeometry(210, 40, 50, 25)
+        # self.kHzLab.setText('kHz')
+        # self.kHzLab.setGeometry(270, 40, 30, 25)
+        # # Sensitivity
+        # self.SensLab = QtWidgets.QLabel(self.ParPanPorCC)
+        # self.SensLab.setText('Hyd Sensitivity')
+        # self.SensLab.setGeometry(10, 70, 180, 25)
+        # # self.SensEdit = QtWidgets.QLineEdit(self.ParPanPorCC)
+        # self.SensEdit.setText('-172')
+        # self.SensEdit.setGeometry(210, 70, 50, 25)
+        # self.dBLab = QtWidgets.QLabel(self.ParPanPorCC)
+        # self.dBLab.setText('dB')
+        # self.dBLab.setGeometry(270, 70, 30, 25)
+        # # Gain
+        # self.GainLab.setText('Gain')
+        # self.GainLab.setGeometry(10, 100, 180, 25)
+        # self.GainEdit.setText('0')
+        # self.GainEdit.setGeometry(210, 100, 50, 25)
+        # self.dBLab2.setText('dB')
+        # self.dBLab2.setGeometry(270, 100, 30, 25)
+        # # DAQ Peak to Peak (Clipping level)
+        # self.DAQLabPorCC.setText('DAQ pp Clipping level')
+        # self.DAQLabPorCC.setGeometry(10, 130, 180, 25)
+        # self.DAQEditPorCC.setText('2')
+        # self.DAQEditPorCC.setGeometry(210, 130, 50, 25)
+        # self.dBLab.setText('Volts')
+        # self.dBLab.setGeometry(270, 130, 30, 25)
+        # # Classifier panel
+        # self.ProbPan.setFrameShape(QtWidgets.QFrame.StyledPanel)
+        # self.ProbPan.setGeometry(10, 340, 320, 140)
+        # # HQ
+        # self.HQ.setText('Prob threshold')
+        # self.HQ.setGeometry(10, 10, 100, 25)
+        # self.HQThres.setText('0.999999')
+        # self.HQThres.setGeometry(170, 10, 100, 25)
+        # self.HQLab.setText('HQ')
+        # self.HQLab.setGeometry(280, 10, 50, 25)
+        # # LQ
+        # self.LQ.setText('Prob threshold')
+        # self.LQ.setGeometry(10, 50, 100, 25)
+        # self.LQThres.setText('0.6')
+        # self.LQThres.setGeometry(170, 50, 100, 25)
+        # self.LQLab.setText('LQ')
+        # self.LQLab.setGeometry(280, 50, 50, 25)
+        # # Buttons
+        # # OK button
+        # self.OpenCTButton = QtWidgets.QPushButton(self.PorCCSetPan)
+        # self.OpenCTButton.setText('OK')
+        # self.OpenCTButton.setGeometry(40, 490, 100, 30)
+        # self.OpenCTButton.clicked.connect(self.OKButtonPorCC)
+        # # Cancel button
+        # self.OpenCTCancelButton = QtWidgets.QPushButton(self.PorCCSetPan)
+        # self.OpenCTCancelButton.setText('Cancel')
+        # self.OpenCTCancelButton.setGeometry(210, 490, 100, 30)
+        # self.OpenCTCancelButton.clicked.connect(self.CancelButtonPorCC)
+        # # Disable resize and show menu
+        # self.MenuPorCCF.setFixedSize(360, 550)
+        # self.MenuPorCCF.show()
+
+    def OKButtonPorCC(self):
+        pass
+        # DataType = self.FileDD.text()
+        #
+        # if DataType == 'SoundTrap output':
+        #     name = 'SoundTrap'
+        #     model = 1
+        #     serial_number = 67416073
+        #     Vpp = 2
+        #     hydrophone = pyhy.SoundTrapHF(name, model, serial_number, Vpp)
+        #     # clicks_df = hydrophone.read_HFclicks(sound_folder_path)
+        #
+        # # TODO make the OK PorCC function
+
+    def CancelButtonPorCC(self):
+        self.MenuPorCCF.close()
+
+    def ApplyButtonPorCC(self):
+        pass
+        # TODO make the apply PorCC function
 
 if __name__ == "__main__":
     import sys
