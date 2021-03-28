@@ -44,12 +44,14 @@ global thisFolder, sset, srise, Fs, PosPorMin, SummaryTable, numberOfFoldersMetr
 
 def NewICI(myTable, fs):
     """
-    Calculates inter-click intervals and repetition rates after rows have been removed
-    :param
-    myTable: pandas dataframe
-            Either CP or CTTemp
+        Calculates inter-click intervals (ICI) and repetition rates (clicks per second - CPS)
+    :parameters:
+        myTable: pandas dataframe with at least the following column
+            start_sample: indicates the sample number where each clicks begins in the wav file
+        fs: sampling frequency
+
     :return:
-    myTable updated
+        myTable updated
     """
     start_sample = myTable["start_sample"]
     myTable = myTable.assign(ICI=start_sample.diff() / (fs / 1000))
@@ -59,33 +61,15 @@ def NewICI(myTable, fs):
     return myTable
 
 
-def FromOrdinal(x):
-    ix = int(x)
-    dt = datetime.fromordinal(ix)
-    remainder = float(x) - ix
-    hour, remainder = divmod(24 * remainder, 1)
-    minute, remainder = divmod(60 * remainder, 1)
-    second, remainder = divmod(60 * remainder, 1)
-    microsecond = int(1e6 * remainder)
-    if microsecond < 10:
-        microsecond = 0  # compensate for rounding errors
-    # for some strange reason it is 1 year over the actual date!!
-    dt = datetime(dt.year - 1, dt.month, dt.day, int(hour), int(minute),
-                  int(second), microsecond)
-
-    # if microsecond > 999990:  # compensate for rounding errors
-    # dt += timedelta(microseconds=1e6 - microsecond)
-
-    return dt
-
-
 def ExtractPatterns(myCP, myFs, lat, long):
     """
+     THIS FUNCTION IS CURRENTLY UNDER DEVELOPMENT. THE MATLAB VERSION SHOULD BE USED INSTEAD
+
      Locates acoustic events and identifies underlying patterns by keeping consecutive clicks with regular variations
      of inter-click intervals (or repetition rates) and amplitude.
 
      Parameters:
-        CP = table containing parameters of each click identified in the data, which were already classified as either
+        myCP = table containing parameters of each click identified in the data, which were already classified as either
           high- or low-quality porpoise clicks.
         myFs = sampling frequency
         lat = latitude of the location of the device. Used to estimate whether the acoustic event occurred during the
@@ -99,14 +83,9 @@ def ExtractPatterns(myCP, myFs, lat, long):
                period of 700 ms, clicks are separated into click trains.
                Click trains that have more than 1000 clicks are divided
                into smaller ones of the same size.
-         CT: final version of the click train. It is stored in another
+         FinalCT: final version of the click train. It is stored in another
                file.
-         CTNum: click train number. Consecutive number starting at 1.
-               Assigned to click trains during the pattern extraction
-               process.
-     Functions:
 
-         CTType:
     """
     CTNum = 0
     ColNames = ['CTNum', 'Date', 'DayNight', 'Length', 'CTType', 'Behav', 'Calf', 'Notes']
@@ -425,28 +404,33 @@ def UpdateWaterfall(XLimMin, YLimMin, ZLimMin, XLimMax, YLimMax, ZLimMax):
     # WaterfallAx.ZTick = []
 
 
-def CTInfoMaker(myCTInfo, myCTTemp, myLat, myLong):  # srise, sset
+def CTInfoMaker(myCTInfo, myCTTemp, myLat, myLong):
     """
-    CTInfoMaker: for each identified click train (myCTTemp), this function estimates a series of summary parameters
-        and generates a table called CTInfo. These parameters are:
-            CTNum = click train number
-            datetime: date and time
-            DayNight = whether it was detected during the day or at night
-            Length = length (in number of clicks)
-            CTType = type of click train (NBHF, LQ-NBHF, Noise, Sonar)
+        CTInfoMaker: for each identified click train (myCTTemp), this function estimates a series of summary parameters
+            and generates a table called CTInfo. These parameters are:
+                CTNum = click train number
+                datetime: date and time
+                DayNight = whether it was detected during the day or at night
+                Length = length (in number of clicks)
+                CTType = type of click train (NBHF, LQ-NBHF, Noise, Sonar)
+        Parameters:
+            myCTInfo: pandas dataframe to store summary data of click trains
+            myCTTemp: click train
+            myLat: latitude of the location of the recording device
+            myLong: longitude of the location of the recording device
     """
     # Store in CTInfo
     CTNum = myCTTemp.CT[0]
     # day/night
-    TODAY = myCTTemp.datetime.iloc[0]
-    day = int(TODAY[8:10])
-    month = int(TODAY[5:7])
-    year = int(TODAY[0:4])
+    today = myCTTemp.datetime.iloc[0]
+    day = int(today[8:10])
+    month = int(today[5:7])
+    year = int(today[0:4])
     sriseH, sriseM = getSunriseTime(day, month, year, myLong, myLat)
     ssetH, ssetM = getSunsetTime(day, month, year, myLong, myLat)
     # I don't know which format time is returned here, need to correct when I do
-    HH = TODAY[11:13]
-    MM = TODAY[14:16]
+    HH = today[11:13]
+    MM = today[14:16]
 
     if (int(HH) > ssetH and int(MM) > ssetM) and (int(HH) < sriseH and int(MM) < sriseM):
         DayNight = 'Day'
@@ -471,6 +455,10 @@ def CTType(CT):
                 porpoises or species that emit similar signals.
             LQ-NBHF: low-quality NBHF click trains, with higher false alarms levels.
             Noise: high-frequency background noise.
+        Parameters:
+            CT: click train
+        Returns:
+            Type of click train
     """
     CFDiff = CT.CF.diff()
     PercChangeCF = (CFDiff / CT.CF[0:-1 - 1]) * 100
@@ -505,7 +493,7 @@ def Behaviour(CT):
             Foraging: increase in click production to well over 100 clicks per second, reaching up to over 600
             Socialising: repetition rates over 100 clicks per second, or decreasing pattern
             Unknown: neither of the patterns described above
-            Sonar: fix frequency and repetition rate. These vary depending on the area.
+            Sonar: fixed frequency and repetition rate. These vary depending on the area.
 
         Parameters:
             CT = click train
@@ -562,11 +550,6 @@ def Behaviour(CT):
                     Behav = 'Socialising'
                 else:
                     Behav = 'Unknown'
-                # end
-            # end
-        # end
-    # end
-    # end
     return Behav
 
 
@@ -1657,15 +1640,15 @@ class Ui_MainWindow(object):
 
     def UpdateCT(self, NumCT, Cp, myCTInfo):
         """
-            Displays the click train number NumCT
+            Displays the click train number 'NumCT'
 
-            Cp = pandas dataframe containing information about all clicks detected in the recordings
-            myCTInfo = contains summary data of all click trains
-
+            Parameters:
+                NumCT: click train number
+                Cp = pandas dataframe containing information about all clicks detected in the recordings
+                myCTInfo = contains summary data of all click trains
         """
         global CTTemp
         CTTemp = Cp[Cp.CT == NumCT]
-        # print(CTTemp)
         if NumCT != 1:
             CTTemp.reset_index(inplace=True, drop=True)
         if len(CTTemp) > 9:
@@ -1755,7 +1738,7 @@ class Ui_MainWindow(object):
     # Display buttons
     def CTBackCB(self):
         """
-            Displays the previous click train
+            Moves to the previous click train
         """
         NumCT = int(self.CTNumD.text())
         First = CTInfo['CTNum'].iloc[0]
@@ -1769,7 +1752,7 @@ class Ui_MainWindow(object):
 
     def CTForwCB(self):
         """
-            Displays the next click train
+            Moves to the next click train
         """
         NumCT = int(self.CTNumD.text())
         Tot = CTInfo['CTNum'].iloc[-1]
@@ -1827,76 +1810,77 @@ class Ui_MainWindow(object):
         self.NotesFig.close()
 
     def OpenIndClicksAnd3D(self):
-        global CTTemp
-        x1 = []
-        y1 = []
-        z1 = []
-        self.Fig3D.setGeometry(50, 50, 1200, 800)
-        self.Fig3D.setWindowTitle('Click train in 3D')
-        self.Pan3D.setFrameShape(QtWidgets.QFrame.StyledPanel)
-        self.Pan3D.setGeometry(10, 10, 1180, 780)
-        self.Plot3D.setGeometry(600, 300, 570, 460)
-
-        ## WATERFALL PLOT
-        FFT = 512
-        CTTemp['iciSum'] = 0
-        for i in range(1, len(CTTemp)):
-            CTTemp.iciSum[i] = CTTemp.ICI[i] + CTTemp.iciSum[i - 1]
-        WavFileToOpen = CTTemp.filename[0]
-
-        # CREATE empty x, y, and z for the waterfall plot
-        z1 = np.zeros((257, len(CTTemp)), dtype=float)  # power of each click in each row
-
-        # FILL the variables
-        # X = frequency
-        click1, fs = soundfile.read(WavFileToOpen, start=1, stop=150)
-        freqs, psd = signal.welch(click1, fs=fs, window='hann', nfft=512)
-        x1 = freqs / 1000
-        # x1.to_numpy()
-        # Y = time( in secs)
-        y1 = CTTemp.iciSum.to_numpy()
-        y1 = y1 / 1000
-        # y1 = y1.T
-
-        # Normalised Amplitude
-        for i in range(0, len(CTTemp)):
-            Start = CTTemp.start_sample[i]
-            End = Start + CTTemp.duration_samples[i]
-            click, Fs = soundfile.read(WavFileToOpen, start=int(Start), stop=int(End))
-            freqs, psd = signal.welch(click, fs=Fs, window='hann', nfft=512)
-            z1[:, i] = psd
-        a = z1.max()
-        z1 = z1 / a
-        # ax = plt.axes(projection='3d')
-
-        # Data for a three-dimensional line
-        # ax.contour3D(x1, y1, z1)
-        # ax.set_xlabel('Frequency (kHz)')
-        # ax.set_ylabel('Time (ms)')
-        # ax.set_zlabel('Amplitude')
-
-        # Data for three-dimensional scattered points
-        # zdata = 15 * np.random.random(100)
-        # xdata = np.sin(zdata) + 0.1 * np.random.randn(100)
-        # ydata = np.cos(zdata) + 0.1 * np.random.randn(100)
-        # ax.scatter3D(xdata, ydata, zdata, c=zdata, cmap='Greens')
-
-        # self.Plot3D.add_subplot(111, projection='3d')
-
-        # n = 0
-        print(len(y1), len(x1), len(z1))
-        p2 = gl.GLSurfacePlotItem(y=y1, x=x1, z=z1, shader='shaded', color=(0.5, 0.5, 1, 1))
-        p2.translate(-10, -30, 10)
-        p2.scale(1.0, 1.0, 0.5)
-        self.Plot3D.addItem(p2)
-
-        # self.Plot3D.contour3D(x1, y1, z1)
-        # self.Plot3D.set_xlabel('Frequency (kHz)')
-        # self.Plot3D.set_ylabel('Time (ms)')
-        # self.Plot3D.set_zlabel('Amplitude')
-        # plt.scatter(self.Plot3D, x1, y1, z1)
-        self.Fig3D.show()
-        self.Plot3D.show()
+        pass
+        # global CTTemp
+        # x1 = []
+        # y1 = []
+        # z1 = []
+        # self.Fig3D.setGeometry(50, 50, 1200, 800)
+        # self.Fig3D.setWindowTitle('Click train in 3D')
+        # self.Pan3D.setFrameShape(QtWidgets.QFrame.StyledPanel)
+        # self.Pan3D.setGeometry(10, 10, 1180, 780)
+        # self.Plot3D.setGeometry(600, 300, 570, 460)
+        #
+        # ## WATERFALL PLOT
+        # FFT = 512
+        # CTTemp['iciSum'] = 0
+        # for i in range(1, len(CTTemp)):
+        #     CTTemp.iciSum[i] = CTTemp.ICI[i] + CTTemp.iciSum[i - 1]
+        # WavFileToOpen = CTTemp.filename[0]
+        #
+        # # CREATE empty x, y, and z for the waterfall plot
+        # z1 = np.zeros((257, len(CTTemp)), dtype=float)  # power of each click in each row
+        #
+        # # FILL the variables
+        # # X = frequency
+        # click1, fs = soundfile.read(WavFileToOpen, start=1, stop=150)
+        # freqs, psd = signal.welch(click1, fs=fs, window='hann', nfft=512)
+        # x1 = freqs / 1000
+        # # x1.to_numpy()
+        # # Y = time( in secs)
+        # y1 = CTTemp.iciSum.to_numpy()
+        # y1 = y1 / 1000
+        # # y1 = y1.T
+        #
+        # # Normalised Amplitude
+        # for i in range(0, len(CTTemp)):
+        #     Start = CTTemp.start_sample[i]
+        #     End = Start + CTTemp.duration_samples[i]
+        #     click, Fs = soundfile.read(WavFileToOpen, start=int(Start), stop=int(End))
+        #     freqs, psd = signal.welch(click, fs=Fs, window='hann', nfft=512)
+        #     z1[:, i] = psd
+        # a = z1.max()
+        # z1 = z1 / a
+        # # ax = plt.axes(projection='3d')
+        #
+        # # Data for a three-dimensional line
+        # # ax.contour3D(x1, y1, z1)
+        # # ax.set_xlabel('Frequency (kHz)')
+        # # ax.set_ylabel('Time (ms)')
+        # # ax.set_zlabel('Amplitude')
+        #
+        # # Data for three-dimensional scattered points
+        # # zdata = 15 * np.random.random(100)
+        # # xdata = np.sin(zdata) + 0.1 * np.random.randn(100)
+        # # ydata = np.cos(zdata) + 0.1 * np.random.randn(100)
+        # # ax.scatter3D(xdata, ydata, zdata, c=zdata, cmap='Greens')
+        #
+        # # self.Plot3D.add_subplot(111, projection='3d')
+        #
+        # # n = 0
+        # print(len(y1), len(x1), len(z1))
+        # p2 = gl.GLSurfacePlotItem(y=y1, x=x1, z=z1, shader='shaded', color=(0.5, 0.5, 1, 1))
+        # p2.translate(-10, -30, 10)
+        # p2.scale(1.0, 1.0, 0.5)
+        # self.Plot3D.addItem(p2)
+        #
+        # # self.Plot3D.contour3D(x1, y1, z1)
+        # # self.Plot3D.set_xlabel('Frequency (kHz)')
+        # # self.Plot3D.set_ylabel('Time (ms)')
+        # # self.Plot3D.set_zlabel('Amplitude')
+        # # plt.scatter(self.Plot3D, x1, y1, z1)
+        # self.Fig3D.show()
+        # self.Plot3D.show()
 
     def CreateSpectrogram(self):
         """
@@ -2013,6 +1997,12 @@ class Ui_MainWindow(object):
         self.SelectFolderMetricEdit.setText(BrowseSelectedFolder)
 
     def UploadMetricData(self):
+        """
+            Generates summary data of the project and uploads it for visualisation purposes
+
+            PosPorMin: positive porpoise minute - contains at least one NBHF click train (strict criteria) or a NBHF
+                or a LQ-NBHF click train (relaxed criteria).
+        """
         global topLevelFolderMetrics, CTInfo, CP, thisFolder
         topLevelFolderMetrics = self.SelectFolderMetricEdit.text()
         # Check whether the PosPorMin and SummaryTable files have been created
@@ -2392,6 +2382,16 @@ class Ui_MainWindow(object):
         self.LQThresDet.setText('0.6')
 
     def RunDetector(self):
+        """
+            Detects and saves individual impulsive sounds from audio files (wav). It is an adaptation of the click
+                detector module in PAMGuard.
+            We recommend using the default values.
+
+            Additional parameters and functions
+                PorCC: Porpoise Click Classifier (Cosentino et al, 2019). Classifies the detected sounds into either of
+                    3 categories: high-quality porpoise click (HQ), low-quality porpoise click (LQ), and high-frequency
+                    noise (N).
+        """
         self.MenuDetSetFig.close()
         MainFolder = self.FolderPathDet.text()
         ModelSel = self.DataTypeDD.currentText()
@@ -2436,7 +2436,7 @@ class Ui_MainWindow(object):
             blocksize = 3456000
         elif ModelSel == 'ST Click Detector':
             name = 'SoundTrap'
-            serial_number = int(self.SerialNoEdit.text())  # 738496579
+            serial_number = int(self.SerialNoEdit.text())
             if serial_number == 0:
                 Sens = int(self.SensEditDet.text())
                 hydrop = pyhy.soundtrap.SoundTrapHF(name=name, model=ModelSel, sensitivity=Sens,
@@ -2521,9 +2521,6 @@ class Ui_MainWindow(object):
         self.FolderPathPorCC.setText(SelectedFolderPorCC)
 
     def NewCTMenu(self):
-        """
-            Creates a menu for a new click train project
-        """
         self.NewCTFig.setGeometry(100, 100, 360, 320)
         self.NewCTFig.setWindowTitle('New Project')
         self.NewCTFig.sizePolicy = 'Fixed'
