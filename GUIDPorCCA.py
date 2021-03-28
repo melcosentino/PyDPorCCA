@@ -110,7 +110,7 @@ def ExtractPatterns(myCP, myFs, lat, long):
     myCP.reset_index(inplace=True, drop=True)
     myCP = NewICI(myCP, myFs)
     ColNames = list(myCP.columns)
-    CTrains = pd.DataFrame(data=None, columns=ColNames)
+    Clicks = pd.DataFrame(data=None, columns=ColNames)
     # # Find click trains
     TimeGaps = myCP[(myCP.ICI > 700.0) | (myCP.ICI < 0.0)].index.to_series()
     TimeGaps.reset_index(inplace=True, drop=True)
@@ -298,12 +298,12 @@ def ExtractPatterns(myCP, myFs, lat, long):
             myCTInfo = CTInfoMaker(myCTInfo, FinalCT, lat, long)
             # Put result into a final file
             if j == 0:
-                CTrains = FinalCT.copy()
+                Clicks = FinalCT.copy()
             else:
-                CTrains = CTrains.append(FinalCT.copy())
+                Clicks = Clicks.append(FinalCT.copy())
         else:
             CTNum = CTNum - 1
-    return CTrains, myCTInfo, myCP
+    return Clicks, myCTInfo, myCP
 
 
 def forceRange(v, maxi):
@@ -1666,8 +1666,10 @@ class Ui_MainWindow(object):
             self.CTTypeLabel.setText(str(myCTInfo.CTType[myCTInfo.CTNum == NumCT].values[0]))
             self.DateandtimeofCTLabel.setText(str(myCTInfo.Date[myCTInfo.CTNum == NumCT].values[0]))
             self.LengthLabel.setText(str(len(CTTemp)))
-            self.BehavLabel.setText(str(myCTInfo.Behav[myCTInfo.CTNum == NumCT].values[0]))
-            self.CalfLabel.setText(str(myCTInfo.Calf[myCTInfo.CTNum == NumCT].values[0]))
+            # self.BehavLabel.setText(str(myCTInfo.Behav[myCTInfo.CTNum == NumCT].values[0]))
+            # self.CalfLabel.setText(str(myCTInfo.Calf[myCTInfo.CTNum == NumCT].values[0]))
+            self.BehavLabel.setText('-')
+            self.CalfLabel.setText('-')
             self.TotalLabel.setText('(' + str(myCTInfo['CTNum'].iloc[-1]) + ')')
             self.DayLabel.setText(str(myCTInfo.DayNight[myCTInfo.CTNum == NumCT].values[0]))
             # if CTInfo["Saved"][[CTInfo.CTNum] == NumCT] == 1:
@@ -2027,7 +2029,7 @@ class Ui_MainWindow(object):
                     CTInfoFile = [s for s in Files if "CTInfo.csv" in s]
                     if len(CTInfoFile) > 0:
                         CTInfo = pd.read_csv(os.path.join(topLevelFolderMetrics, myFolder, "CTInfo.csv"))
-                    # CTrains = [s for s in Files if "CTrains.csv" in s]
+                    # Clicks = [s for s in Files if "Clicks.csv" in s]
                     Date = CTInfo.Date[0]
                     NewDate = int(Date[0:4] + Date[5:7] + Date[8:10])
 
@@ -2618,18 +2620,18 @@ class Ui_MainWindow(object):
                     CP.to_csv(CPFileName, index=False)
 
             fs = 576000  # I will need a settings file
-            CTrains, thisCTInfo, CP = ExtractPatterns(CP, fs, latitude, longitude)
+            Clicks, thisCTInfo, CP = ExtractPatterns(CP, fs, latitude, longitude)
             if myFolders == MainFolder:
                 CTInfoFileName = MainFolder + '/CTInfo.csv'
-                CTrainsFileName = MainFolder + '/CTrains.csv'
+                ClicksFileName = MainFolder + '/Clicks.csv'
                 thisCTInfo.to_csv(CTInfoFileName, index=False)
-                CTrains.to_csv(CTrainsFileName, index=False)
+                Clicks.to_csv(ClicksFileName, index=False)
                 break
             else:
                 CTInfoFileName = MainFolder + '/' + myFolder + '/CTInfo.csv'
-                CTrainsFileName = MainFolder + '/' + myFolder + '/CTrains.csv'
+                ClicksFileName = MainFolder + '/' + myFolder + '/Clicks.csv'
                 thisCTInfo.to_csv(CTInfoFileName, index=False)
-                CTrains.to_csv(CTrainsFileName, index=False)
+                Clicks.to_csv(ClicksFileName, index=False)
 
     def OpenCTCancel(self):
         self.OpenCTFig.close()
@@ -2644,7 +2646,7 @@ class Ui_MainWindow(object):
     def OpenCT(self):
         global CP, CTInfo
         self.OpenCTFig.close()
-        CPFileName = self.SelectedFolderCT + "/CTrains.csv"
+        CPFileName = self.SelectedFolderCT + "/Clicks.csv"
         CP = pd.read_csv(CPFileName)
         CTInfoFileName = self.SelectedFolderCT + "/CTInfo.csv"
         CTInfo = pd.read_csv(CTInfoFileName)
