@@ -22,10 +22,8 @@ Pillow==8.0.1
 pip-chill==1.0.1
 pyarrow==2.0.0
 pycparser==2.20
-pyhydrophone @ file:///C:/Mel/PythonEnvironments/MyDPorCCA/Lib/site-packages/pyhydrophone
 PyOpenGL==3.1.5
 pyparsing==2.4.7
-pyporcc @ file:///C:/Mel/PythonEnvironments/MyDPorCCA/Lib/site-packages/pyporcc
 PyQt5==5.15.2
 PyQt5-sip==12.8.1
 PyQt5-stubs==5.14.2.2
