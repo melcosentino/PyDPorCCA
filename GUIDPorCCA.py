@@ -2941,9 +2941,9 @@ class Ui_MainWindow(object):
     def OpenCT(self):
         global CP, CTInfo
         self.OpenCTFig.close()
-        CPFileName = self.SelectedFolder + "/CTrains.csv"
+        CPFileName = self.SelectedFolderCT + "/CTrains.csv"
         CP = pd.read_csv(CPFileName)
-        CTInfoFileName = self.SelectedFolder + "/CTInfo.csv"
+        CTInfoFileName = self.SelectedFolderCT + "/CTInfo.csv"
         CTInfo = pd.read_csv(CTInfoFileName)
         CTInfo = CTInfo[CTInfo.Length > 9]
         CTInfo.reset_index(inplace=True, drop=True)
