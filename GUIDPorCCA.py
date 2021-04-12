@@ -26,6 +26,7 @@ import pyqtgraph as pg
 import pyqtgraph.opengl as gl
 import soundfile
 import isoutlier
+import warnings
 from PyQt5 import QtCore, QtGui
 from PyQt5 import QtWidgets
 from pyporcc import click_detector
@@ -83,12 +84,9 @@ def ExtractPatterns(myCP, myFs, lat, long):
                file.
 
     """
-    print('This function is under development and should NOT be used. Contact the developer for more information')
     CTNum = 0
     ColNames = ['CTNum', 'Date', 'DayNight', 'Length', 'CTType', 'Behav', 'Calf', 'Notes']
     myCTInfo = pd.DataFrame(data=None, columns=ColNames)
-    myCP = myCP.drop(myCP[myCP.duration > 450].index)
-    myCP.reset_index(inplace=True, drop=True)
     myCP = NewICI(myCP, myFs)
     # remove local min
     S1 = len(myCP)
@@ -102,21 +100,22 @@ def ExtractPatterns(myCP, myFs, lat, long):
         myCP.reset_index(inplace=True, drop=True)
         myCP = NewICI(myCP, myFs)
         S2 = len(myCP)
-
+    myCP["AmpDiff"] = myCP.amplitude.diff()
     myCP = myCP.drop(myCP[(myCP.CPS.diff() > 80.0)].index)
     myCP.reset_index(inplace=True, drop=True)
     myCP = NewICI(myCP, myFs)
+    myCP.reset_index(inplace=True, drop=True)
     ColNames = list(myCP.columns)
     Clicks = pd.DataFrame(data=None, columns=ColNames)
     # # Find click trains
-    TimeGaps = myCP[(myCP.ICI > 700.0) | (myCP.ICI < 0.0)].index.to_series()
+    TimeGaps = myCP.loc[(myCP['ICI'] > 700.0) | (myCP['ICI'] < 0.0)].index.to_series()
     TimeGaps.reset_index(inplace=True, drop=True)
     DiffTimeGaps = TimeGaps.diff()
-
     # Find very long CT and reduce them to CT with fewer than 1000 clicks
-    LongCTs = DiffTimeGaps[DiffTimeGaps > 1000].index
+    LongCTs = DiffTimeGaps[DiffTimeGaps > 1000.0].index
+
     if len(LongCTs) > 0:
-        for m in range(0, len(LongCTs) - 1):
+        for m in range(0, len(LongCTs)):
             Length = int(DiffTimeGaps[LongCTs[m]])
             CTsInside = math.floor(Length / 1000) + 1  # integer less than
             # Add Positions to TimeGaps
@@ -125,8 +124,8 @@ def ExtractPatterns(myCP, myFs, lat, long):
             NewPos = np.linspace(start=PosInCP, stop=NextPos, num=CTsInside + 2).astype(int)
             NewPos = pd.Series(NewPos)
             TimeGaps.append(NewPos[1:-1 - 1])
-            TimeGaps = TimeGaps.sort()
-            TimeGaps.reset_index(inplace=True, drop=True)
+        TimeGaps = TimeGaps.sort()
+        TimeGaps.reset_index(inplace=True, drop=True)
         DiffTimeGaps = TimeGaps.diff()
         CTs = DiffTimeGaps[DiffTimeGaps > 9].index
     else:
@@ -135,22 +134,15 @@ def ExtractPatterns(myCP, myFs, lat, long):
     for j in range(0, len(CTs)):  # j runs through all the CT c
         if j == 0:
             Start = 0
-            End = TimeGaps[CTs[j]]
+            End = TimeGaps[0]-1
         else:
-            Start = TimeGaps[CTs[j] - 1]
-            End = TimeGaps[CTs[j]]
+            i = j - 1
+            Start = TimeGaps[CTs[i]-1]
+            End = TimeGaps[CTs[i]]-1
         CT = myCP[Start:End]
         CT.reset_index(inplace=True, drop=True)
-        L1 = len(CT)
-        L2 = 1
-        while L2 != L1:
-            L1 = len(CT)
-            CT = NewICI(CT, myFs)
-            CT = CT.drop(CT[(CT.start_sample.diff() < 500)
-                            & ((CT.amplitude.diff() < 0) | (CT.start_sample.diff() > 6))].index)
-            CT.reset_index(inplace=True, drop=True)
-            L2 = len(CT)
-        CTNum = CTNum + 1
+        CT = NewICI(CT, myFs)
+        CTNum = j + 1
         CT = CT.assign(CT=CTNum)
         # Delete loose clicks
         L1 = len(CT)
@@ -169,45 +161,21 @@ def ExtractPatterns(myCP, myFs, lat, long):
         SortedCPS = CT.CPS.values.copy()
         SortedCPS.sort()
         DiffSorted = pd.DataFrame(SortedCPS).diff()
-        DiffSorted = DiffSorted.drop([0])
         MaxDiffSorted = DiffSorted.max().values
 
         if MaxDiffSorted <= 40:
             FinalCT = CT.copy()
         else:
-            # # remove outliers (from https://stackoverflow.com/questions/62692771/
-            # # outlier-detection-based-on-the-moving-mean-in-python)
-            # # Calculate rolling median
-            # CT['rolling_CPS'] = CT['CPS'].rolling(window=9).median()
-            # # Calculate difference
-            # CT['diff_CPS'] = CT['CPS'] - CT['rolling_CPS']
-            # # Flag rows to be dropped as `1`
-            # # Set threshold for difference with rolling median (they have to be adaptable)
-            # upper_threshold = CT['CPS'].median() * 10
-            # lower_threshold = -upper_threshold
-            # CT['drop_flag'] = np.where(
-            #     (CT['diff_CPS'] > upper_threshold) | (CT['diff_CPS'] < lower_threshold), 1, 0)
-            # # Drop flagged rows
-            # CT = CT[CT['drop_flag'] != 1]
-            # CT = CT.drop(['rolling_CPS', 'rolling_CPS', 'diff_CPS', 'drop_flag'], axis=1)
-            # CT.reset_index(inplace=True, drop=True)
+
             Outlier = isoutlier.isoutliers(CT.CPS)
             HighCPS = CT.CPS > 100
-            # print(HighCPS, Outlier)
-            # Both = Outlier + HighCPS
-            # print(Both)
             CT.drop(index=CT[HighCPS & Outlier].index)
-            print(CT[HighCPS & Outlier].index)
-            # CT.drop(CT[HighCPS & Outlier], axis=1)
-            CT = NewICI(CT, myFs)
             CT.reset_index(inplace=True, drop=True)
+            CT = NewICI(CT, myFs)
             SortedCPS = CT.CPS.values.copy()
             SortedCPS.sort()
             DiffSorted = pd.DataFrame(SortedCPS).diff()
-            # DiffSorted = DiffSorted.drop([0], axis=1)
-            # CT.reset_index(inplace=True, drop=True)
             MaxDiffSorted = DiffSorted.max().values
-
 
             if MaxDiffSorted <= 50:
                 FinalCT = CT.copy()
@@ -302,7 +270,15 @@ def ExtractPatterns(myCP, myFs, lat, long):
                 FinalCT = NewICI(FinalCT, myFs)
 
         if len(FinalCT) > 0:
-            FinalCT.reset_index(inplace=True, drop=True)
+            # Delete loose clicks
+            L1 = len(FinalCT)
+            L2 = 1
+            while L2 != L1:
+                L1 = len(FinalCT)
+                FinalCT = NewICI(FinalCT, myFs)
+                FinalCT.drop(index=FinalCT[FinalCT.ICI > 400].index)
+                FinalCT.reset_index(inplace=True, drop=True)
+                L2 = len(FinalCT)
             myCTInfo = CTInfoMaker(myCTInfo, FinalCT, lat, long)
             # Put result into a final file
             if j == 0:
@@ -310,7 +286,7 @@ def ExtractPatterns(myCP, myFs, lat, long):
             else:
                 Clicks = Clicks.append(FinalCT.copy())
         else:
-            CTNum = CTNum - 1
+            warnings.warn("This click train was empty, the number will be skipped")
     return Clicks, myCTInfo, myCP
 
 
@@ -2629,12 +2605,16 @@ class Ui_MainWindow(object):
                 ClicksFileName = MainFolder + '/Clicks.csv'
                 thisCTInfo.to_csv(CTInfoFileName, index=False)
                 Clicks.to_csv(ClicksFileName, index=False)
+                CPFileName = MainFolder + '/CP.csv'
+                CP.to_csv(CPFileName, index=False)
                 break
             else:
                 CTInfoFileName = MainFolder + '/' + myFolder + '/CTInfo.csv'
                 ClicksFileName = MainFolder + '/' + myFolder + '/Clicks.csv'
                 thisCTInfo.to_csv(CTInfoFileName, index=False)
                 Clicks.to_csv(ClicksFileName, index=False)
+                CPFileName = MainFolder + '/' + myFolder + '/CP.csv'
+                CP.to_csv(CPFileName, index=False)
 
     def OpenCTCancel(self):
         self.OpenCTFig.close()
