@@ -131,10 +131,13 @@ def ExtractPatterns(myCP, myFs, lat, long):
     else:
         CTs = DiffTimeGaps[DiffTimeGaps > 9].index
 
-    for j in range(0, len(CTs)):  # j runs through all the CT c
+    for j in range(0, len(CTs)+1):  # j runs through all the CT c
         if j == 0:
             Start = 0
             End = TimeGaps[0]-1
+        elif j == (len(CTs)+1):
+            Start = TimeGaps[CTs[-1]]
+            End = len(myCP)
         else:
             i = j - 1
             Start = TimeGaps[CTs[i]-1]
@@ -144,18 +147,6 @@ def ExtractPatterns(myCP, myFs, lat, long):
         CT = NewICI(CT, myFs)
         CTNum = j + 1
         CT = CT.assign(CT=CTNum)
-        # Delete loose clicks
-        L1 = len(CT)
-        L2 = 1
-        while L2 != L1:
-            L1 = len(CT)
-            CT = NewICI(CT, myFs)
-            LooseClicks = CT[CT.ICI > 400].index.to_series()
-            # Positions = find(diff(LooseClicks) == 1)
-            RowsToDelete = LooseClicks[LooseClicks.diff() == 1]
-            CT = CT.drop(RowsToDelete)
-            CT.reset_index(inplace=True, drop=True)
-            L2 = len(CT)
 
         # A large difference indicates echoes
         SortedCPS = CT.CPS.values.copy()
@@ -270,15 +261,7 @@ def ExtractPatterns(myCP, myFs, lat, long):
                 FinalCT = NewICI(FinalCT, myFs)
 
         if len(FinalCT) > 0:
-            # Delete loose clicks
-            L1 = len(FinalCT)
-            L2 = 1
-            while L2 != L1:
-                L1 = len(FinalCT)
-                FinalCT = NewICI(FinalCT, myFs)
-                FinalCT.drop(index=FinalCT[FinalCT.ICI > 400].index)
-                FinalCT.reset_index(inplace=True, drop=True)
-                L2 = len(FinalCT)
+            FinalCT = NewICI(FinalCT, myFs)
             myCTInfo = CTInfoMaker(myCTInfo, FinalCT, lat, long)
             # Put result into a final file
             if j == 0:
