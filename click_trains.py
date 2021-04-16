@@ -273,11 +273,20 @@ def CTInfoMaker(myCTInfo, myCTTemp, myLat, myLong):
     HH = today[11:13]
     MM = today[14:16]
 
-    if (int(HH) > ssetH and int(MM) > ssetM) and (int(HH) < sriseH and int(MM) < sriseM):
+    if sriseH < int(HH) < int(ssetM):
         DayNight = 'Day'
-    else:  # if DATE >= sset and DATE <= srise
+    elif sriseH > int(HH) > int(ssetM):
         DayNight = 'Night'
-
+    elif sriseH == int(HH):
+        if int(MM) >= sriseM:
+            DayNight = 'Day'
+        else:
+            DayNight = 'Night'
+    elif ssetH == int(HH):
+        if int(MM) >= ssetM:
+            DayNight = 'Night'
+        else:
+            DayNight = 'Day'
     # Type
     Type = CTType(myCTTemp)
     if Type == 'Noise':

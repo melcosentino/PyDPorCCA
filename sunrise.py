@@ -42,7 +42,6 @@ def calcSunTime(day, month, year, longitude, latitude, isRiseTime, zenith=90.8):
     L = forceRange(L, 360)  # NOTE: L adjusted into the range [0,360)
 
     # 5a. calculate the Sun's right ascension
-
     RA = (1 / TO_RAD) * math.atan(0.91764 * math.tan(TO_RAD * L))
     RA = forceRange(RA, 360)  # NOTE: RA adjusted into the range [0,360)
 

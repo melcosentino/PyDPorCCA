@@ -2088,7 +2088,10 @@ class Ui_MainWindow(object):
                 FilesInFolder = os.listdir(MainFolder + '/' + myFolder)
             if any("." in s for s in FilesInFolder):
                 CPFile = [s for s in FilesInFolder if "CP.csv" in s]
-                print('Processing folder', myFolder)
+                if myFolders == MainFolder:
+                    print('Processing folder', MainFolder)
+                else:
+                    print('Processing folder', myFolders)
                 if len(CPFile) > 0:
                     if myFolders == MainFolder:
                         CPFileName = MainFolder + '/CP.csv'
