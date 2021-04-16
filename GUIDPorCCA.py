@@ -25,7 +25,7 @@ import pyhydrophone as pyhy
 import pyqtgraph as pg
 import pyqtgraph.opengl as gl
 import soundfile
-import isoutlier
+
 import warnings
 from PyQt5 import QtCore, QtGui
 from PyQt5 import QtWidgets
@@ -33,487 +33,18 @@ from pyporcc import click_detector
 from pyporcc import porcc
 from scipy import signal
 
+import isoutlier
+import click_trains
+import sunrise
 pd.options.mode.chained_assignment = None
 
 global BrowseSelectedFolder, CTInfo, CTTemp, NHyd, CP, topLevelFolderMetrics
 global thisFolder, sset, srise, Fs, PosPorMin, SummaryTable, numberOfFoldersMetrics
 
 
-def NewICI(myTable, fs):
-    """
-        Calculates inter-click intervals (ICI) and repetition rates (clicks per second - CPS)
-    :parameters:
-        myTable: pandas dataframe with at least the following column
-            start_sample: indicates the sample number where each clicks begins in the wav file
-        fs: sampling frequency
-
-    :return:
-        myTable updated
-    """
-    start_sample = myTable["start_sample"]
-    myTable = myTable.assign(ICI=start_sample.diff() / (fs / 1000))
-    myTable = myTable.assign(CPS=1000 / myTable.ICI)
-    myTable.at[0, 'CPS'] = 0.0
-    myTable.at[0, 'ICI'] = 0.0
-    return myTable
-
-
-def ExtractPatterns(myCP, myFs, lat, long):
-    """
-     THIS FUNCTION IS CURRENTLY UNDER DEVELOPMENT. THE MATLAB VERSION SHOULD BE USED INSTEAD
-
-     Locates acoustic events and identifies underlying patterns by keeping consecutive clicks with regular variations
-     of inter-click intervals (or repetition rates) and amplitude.
-
-     Parameters:
-        myCP = table containing parameters of each click identified in the data, which were already classified as either
-          high- or low-quality porpoise clicks.
-        myFs = sampling frequency
-        lat = latitude of the location of the device. Used to estimate whether the acoustic event occurred during the
-          day or the night
-        long = longitude of the location of the device. Used to estimate whether the acoustic event occurred during the
-          day or the night
-
-     Variables used:
-
-         CTTemp: temporary click train. Using a minimum separation time
-               period of 700 ms, clicks are separated into click trains.
-               Click trains that have more than 1000 clicks are divided
-               into smaller ones of the same size.
-         FinalCT: final version of the click train. It is stored in another
-               file.
-
-    """
-    CTNum = 0
-    ColNames = ['CTNum', 'Date', 'DayNight', 'Length', 'CTType', 'Behav', 'Calf', 'Notes']
-    myCTInfo = pd.DataFrame(data=None, columns=ColNames)
-    myCP = NewICI(myCP, myFs)
-    # remove local min
-    S1 = len(myCP)
-    S2 = 1
-    while S1 != S2:
-        S1 = len(myCP)
-        myCP["AmpDiff"] = myCP.amplitude.diff()
-        myCP = myCP.drop(
-            myCP[(myCP.amplitude.shift(1) > myCP.amplitude) & (myCP.amplitude.shift(-1) > myCP.amplitude) & (
-                    myCP.AmpDiff < -6)].index)
-        myCP.reset_index(inplace=True, drop=True)
-        myCP = NewICI(myCP, myFs)
-        S2 = len(myCP)
-    myCP["AmpDiff"] = myCP.amplitude.diff()
-    myCP = myCP.drop(myCP[(myCP.CPS.diff() > 80.0)].index)
-    myCP.reset_index(inplace=True, drop=True)
-    myCP = NewICI(myCP, myFs)
-    myCP.reset_index(inplace=True, drop=True)
-    ColNames = list(myCP.columns)
-    Clicks = pd.DataFrame(data=None, columns=ColNames)
-    # # Find click trains
-    TimeGaps = myCP.loc[(myCP['ICI'] > 700.0) | (myCP['ICI'] < 0.0)].index.to_series()
-    TimeGaps.reset_index(inplace=True, drop=True)
-    DiffTimeGaps = TimeGaps.diff()
-    # Find very long CT and reduce them to CT with fewer than 1000 clicks
-    LongCTs = DiffTimeGaps[DiffTimeGaps > 1000.0].index
-
-    if len(LongCTs) > 0:
-        for m in range(0, len(LongCTs)):
-            Length = int(DiffTimeGaps[LongCTs[m]])
-            CTsInside = math.floor(Length / 1000) + 1  # integer less than
-            # Add Positions to TimeGaps
-            PosInCP = int(TimeGaps[LongCTs[m]])
-            NextPos = int(TimeGaps[LongCTs[m] + 1])
-            NewPos = np.linspace(start=PosInCP, stop=NextPos, num=CTsInside + 2).astype(int)
-            NewPos = pd.Series(NewPos)
-            TimeGaps.append(NewPos[1:-1 - 1])
-        TimeGaps = TimeGaps.sort()
-        TimeGaps.reset_index(inplace=True, drop=True)
-        DiffTimeGaps = TimeGaps.diff()
-        CTs = DiffTimeGaps[DiffTimeGaps > 9].index
-    else:
-        CTs = DiffTimeGaps[DiffTimeGaps > 9].index
-
-    for j in range(0, len(CTs)+1):  # j runs through all the CT c
-        if j == 0:
-            Start = 0
-            End = TimeGaps[0]-1
-        elif j == (len(CTs)+1):
-            Start = TimeGaps[CTs[-1]]
-            End = len(myCP)
-        else:
-            i = j - 1
-            Start = TimeGaps[CTs[i]-1]
-            End = TimeGaps[CTs[i]]-1
-        CT = myCP[Start:End]
-        CT.reset_index(inplace=True, drop=True)
-        CT = NewICI(CT, myFs)
-        CTNum = j + 1
-        CT = CT.assign(CT=CTNum)
-
-        # A large difference indicates echoes
-        SortedCPS = CT.CPS.values.copy()
-        SortedCPS.sort()
-        DiffSorted = pd.DataFrame(SortedCPS).diff()
-        MaxDiffSorted = DiffSorted.max().values
-
-        if MaxDiffSorted <= 40:
-            FinalCT = CT.copy()
-        else:
-
-            Outlier = isoutlier.isoutliers(CT.CPS)
-            HighCPS = CT.CPS > 100
-            CT.drop(index=CT[HighCPS & Outlier].index)
-            CT.reset_index(inplace=True, drop=True)
-            CT = NewICI(CT, myFs)
-            SortedCPS = CT.CPS.values.copy()
-            SortedCPS.sort()
-            DiffSorted = pd.DataFrame(SortedCPS).diff()
-            MaxDiffSorted = DiffSorted.max().values
-
-            if MaxDiffSorted <= 50:
-                FinalCT = CT.copy()
-            elif len(CT) > 20:
-                # Finding stable areas
-                CPSDiff = CT.CPS.diff()
-                PercChangeS = (CPSDiff / CT.CPS[1:-1 - 1]) * 100
-                PercChangeS = abs(PercChangeS[2:-1])
-                window_size = 3
-                i = 0
-                PercCPSDiff = []
-                # moving average
-                while i < len(PercChangeS) - window_size + 1:
-                    this_window = PercChangeS[i: i + window_size]
-                    # get current window
-                    window_average = sum(this_window) / window_size
-                    PercCPSDiff.append(window_average)
-                    i += 1
-                PercCPSDiff = pd.DataFrame(PercCPSDiff)
-                PercCPSDiff.reset_index(inplace=True, drop=True)
-                StartRow = PercCPSDiff[PercCPSDiff[0] < 20.0].index.to_series()
-                StartRow.reset_index(inplace=True, drop=True)
-                DiffStartRow = StartRow.diff()
-                Here = DiffStartRow[DiffStartRow == 1].index.to_series()
-                Here.reset_index(inplace=True, drop=True)
-                if len(StartRow) < 2:
-                    FinalCT = CT.copy()
-                    FinalCT = NewICI(FinalCT, myFs)
-                else:  # go into the CT
-                    RowN = StartRow[0]  # Low variability in CPS (in the next 4 clicks)
-                    RowsToKeep = np.array(Here)
-                    FirstRowN = RowN
-
-                    # Look backwards
-                    while RowN > 5:
-                        ClickCPS = CT.CPS.iloc[RowN]
-                        ClickAmp = CT.amplitude.iloc[RowN]
-                        Clickstart_sample = CT.start_sample.iloc[RowN]
-                        ICIs = abs(Clickstart_sample - CT.start_sample[RowN - 5:RowN - 1]) / (myFs / 1000)
-                        CPSs = 1000 / ICIs
-                        Amps = CT.amplitude[RowN - 5:RowN - 1]
-                        Amps = abs(ClickAmp - Amps)
-                        DiffCPSs = abs(ClickCPS - CPSs)
-                        DiffCPSs = pd.DataFrame(DiffCPSs)
-                        MinVal = DiffCPSs.start_sample.min()
-                        ixCPS = DiffCPSs[DiffCPSs.start_sample == MinVal].index
-                        if Amps[ixCPS[0]] < 5:
-                            DiffCPSs[ixCPS[0]] = 1000  # high arbitrary number
-                            MinVal = DiffCPSs.start_sample.min()
-                            ixCPS = DiffCPSs[DiffCPSs.start_sample == MinVal].index
-                            RowN = RowN - ixCPS[0]
-                        else:
-                            RowN = RowN - ixCPS[0]
-
-                        RowsToKeep = np.append(RowsToKeep, RowN)
-                    # Look forwards
-                    RowN = FirstRowN
-                    while RowN < len(CT) - 10:
-                        ClickCPS = CT.CPS.iloc[RowN]
-                        ClickAmp = CT.amplitude.iloc[RowN]
-                        Clickstart_sample = CT.start_sample.iloc[RowN]
-                        ICIs = abs(CT.start_sample[RowN + 1:RowN + 9] - Clickstart_sample) / (myFs / 1000)
-                        CPSs = 1000 / ICIs
-                        Amps = CT.amplitude[RowN + 1:RowN + 9]
-                        Amps = abs(Amps - ClickAmp)
-                        DiffCPSs = abs(ClickCPS - CPSs)
-                        DiffCPSs = pd.DataFrame(DiffCPSs)
-                        MinVal = DiffCPSs.start_sample.min()
-                        ixCPS = DiffCPSs[DiffCPSs.start_sample == MinVal].index
-                        if Amps[ixCPS[0]] < 6:
-                            DiffCPSs[ixCPS[0]] = 1000  # high arbitrary number
-                            MinVal = DiffCPSs.start_sample.min()
-                            ixCPS = DiffCPSs[DiffCPSs.start_sample == MinVal].index
-                            RowN = RowN + ixCPS[0]
-                        else:
-                            RowN = RowN + ixCPS[0]
-
-                        RowsToKeep = np.append(RowsToKeep, RowN)
-
-                    RowsToKeep = np.append(RowsToKeep, RowN)
-                    RowsToKeep = np.unique(RowsToKeep)
-                    RowsToKeep = np.delete(RowsToKeep, np.where(RowsToKeep <= 0))
-                    RowsToKeep = np.delete(RowsToKeep, np.where(RowsToKeep > len(CT) - 1))
-                    if len(RowsToKeep) > 0:
-                        FinalCT = CT.iloc[RowsToKeep]
-                        FinalCT.reset_index(inplace=True, drop=True)
-                        FinalCT = NewICI(FinalCT, myFs)
-                    else:
-                        FinalCT = []
-            else:
-                FinalCT = CT.copy()
-                FinalCT = NewICI(FinalCT, myFs)
-
-        if len(FinalCT) > 0:
-            FinalCT = NewICI(FinalCT, myFs)
-            myCTInfo = CTInfoMaker(myCTInfo, FinalCT, lat, long)
-            # Put result into a final file
-            if j == 0:
-                Clicks = FinalCT.copy()
-            else:
-                Clicks = Clicks.append(FinalCT.copy())
-        else:
-            warnings.warn("This click train was empty, the number will be skipped")
-    return Clicks, myCTInfo, myCP
-
-
-def forceRange(v, maxi):
-    # force v to be >= 0 and < max
-    if v < 0:
-        return v + maxi
-    elif v >= maxi:
-        return v - maxi
-    return v
-
-
-def getSunriseTime(day, month, year, longitude, latitude):
-    return calcSunTime(day, month, year, longitude, latitude, True)
-
-
-def getSunsetTime(day, month, year, longitude, latitude):
-    return calcSunTime(day, month, year, longitude, latitude, False)
-
-
-def calcSunTime(day, month, year, longitude, latitude, isRiseTime, zenith=90.8):
-    TO_RAD = math.pi / 180
-
-    # 1. first calculate the day of the year
-    N1 = math.floor(275 * month / 9)
-    N2 = math.floor((month + 9) / 12)
-    N3 = (1 + math.floor((year - 4 * math.floor(year / 4) + 2) / 3))
-    N = N1 - (N2 * N3) + day - 30
-
-    # 2. convert the longitude to hour value and calculate an approximate time
-    lngHour = longitude / 15
-
-    if isRiseTime:
-        t = N + ((6 - lngHour) / 24)
-    else:  # sunset
-        t = N + ((18 - lngHour) / 24)
-
-    # 3. calculate the Sun's mean anomaly
-    M = (0.9856 * t) - 3.289
-
-    # 4. calculate the Sun's true longitude
-    L = M + (1.916 * math.sin(TO_RAD * M)) + (0.020 * math.sin(TO_RAD * 2 * M)) + 282.634
-    L = forceRange(L, 360)  # NOTE: L adjusted into the range [0,360)
-
-    # 5a. calculate the Sun's right ascension
-
-    RA = (1 / TO_RAD) * math.atan(0.91764 * math.tan(TO_RAD * L))
-    RA = forceRange(RA, 360)  # NOTE: RA adjusted into the range [0,360)
-
-    # 5b. right ascension value needs to be in the same quadrant as L
-    Lquadrant = math.floor(L / 90) * 90
-    RAquadrant = math.floor(RA / 90) * 90
-    RA = RA + (Lquadrant - RAquadrant)
-
-    # 5c. right ascension value needs to be converted into hours
-    RA = RA / 15
-
-    # 6. calculate the Sun's declination
-    sinDec = 0.39782 * math.sin(TO_RAD * L)
-    cosDec = math.cos(math.asin(sinDec))
-
-    # 7a. calculate the Sun's local hour angle
-    cosH = (math.cos(TO_RAD * zenith) - (sinDec * math.sin(TO_RAD * latitude))) / (
-            cosDec * math.cos(TO_RAD * latitude))
-
-    if cosH > 1:
-        return {'status': False, 'msg': 'the sun never rises on this location (on the specified date)'}
-
-    if cosH < -1:
-        return {'status': False, 'msg': 'the sun never sets on this location (on the specified date)'}
-
-    # 7b. finish calculating H and convert into hours
-
-    if isRiseTime:
-        H = 360 - (1 / TO_RAD) * math.acos(cosH)
-    else:  # setting
-        H = (1 / TO_RAD) * math.acos(cosH)
-
-    H = H / 15
-
-    # 8. calculate local mean time of rising/setting
-    T = H + RA - (0.06571 * t) - 6.622
-
-    # 9. adjust back to UTC
-    UT = T - lngHour
-    UT = forceRange(UT, 24)  # UTC time in decimal format (e.g. 23.23)
-
-    # 10. Return
-    hr = forceRange(int(UT), 24)
-    Min = round((UT - int(UT)) * 60, 0)
-    return hr, Min
-
 
 def UpdateWaterfall(XLimMin, YLimMin, ZLimMin, XLimMax, YLimMax, ZLimMax):
     pass
-
-
-def CTInfoMaker(myCTInfo, myCTTemp, myLat, myLong):
-    """
-        CTInfoMaker: for each identified click train (myCTTemp), this function estimates a series of summary parameters
-            and generates a table called CTInfo. These parameters are:
-                CTNum = click train number
-                datetime: date and time
-                DayNight = whether it was detected during the day or at night
-                Length = length (in number of clicks)
-                CTType = type of click train (NBHF, LQ-NBHF, Noise, Sonar)
-        Parameters:
-            myCTInfo: pandas dataframe to store summary data of click trains
-            myCTTemp: click train
-            myLat: latitude of the location of the recording device
-            myLong: longitude of the location of the recording device
-    """
-    # Store in CTInfo
-    CTNum = myCTTemp.CT[0]
-    # day/night
-    today = myCTTemp.datetime.iloc[0]
-    day = int(today[8:10])
-    month = int(today[5:7])
-    year = int(today[0:4])
-    sriseH, sriseM = getSunriseTime(day, month, year, myLong, myLat)
-    ssetH, ssetM = getSunsetTime(day, month, year, myLong, myLat)
-    # I don't know which format time is returned here, need to correct when I do
-    HH = today[11:13]
-    MM = today[14:16]
-
-    if (int(HH) > ssetH and int(MM) > ssetM) and (int(HH) < sriseH and int(MM) < sriseM):
-        DayNight = 'Day'
-    else:  # if DATE >= sset and DATE <= srise
-        DayNight = 'Night'
-
-    # Type
-    Type = CTType(myCTTemp)
-    if Type == 'Noise':
-        Behav = '-'
-    else:
-        Behav = Behaviour(myCTTemp)
-    myCTInfo = myCTInfo.append({'CTNum': CTNum, 'Date': myCTTemp.datetime[0], 'Length': len(myCTTemp), 'CTType': Type,
-                                'DayNight': DayNight, 'Behav': Behav, 'Calf': '-', 'Notes': ' '}, ignore_index=True)
-    return myCTInfo
-
-
-def CTType(CT):
-    """
-        Estimates a series of parameters for each click train and classify them into either of three categories:
-            NBHF: narrow-band, high-frequency click trains, with a high probability of being produced by harbour
-                porpoises or species that emit similar signals.
-            LQ-NBHF: low-quality NBHF click trains, with higher false alarms levels.
-            Noise: high-frequency background noise.
-        Parameters:
-            CT: click train
-        Returns:
-            Type of click train
-    """
-    CFDiff = CT.CF.diff()
-    PercChangeCF = (CFDiff / CT.CF[0:-1 - 1]) * 100
-    MedianPercChangeCF = abs(PercChangeCF).median()
-    SDCF = CT.CF.std()
-    CPSDiff = CT.CPS.diff()
-    CPSDiff = CPSDiff.drop([0])
-    PercChange = (CPSDiff / CT.CPS[1:-1 - 1]) * 100
-    MedianPercChangeCPS = abs(PercChange[1:-1]).median()
-    if len(CT) < 10:
-        Type = 'Noise'
-    elif MedianPercChangeCF < 0.5 and MedianPercChangeCPS < 0.05 and SDCF < 300:
-        Type = 'Noise'
-    elif MedianPercChangeCPS > 70 or MedianPercChangeCF > 4:
-        Type = 'Noise'
-    elif MedianPercChangeCPS < 30 or (MedianPercChangeCPS < 30 and MedianPercChangeCF > 2.65):
-        Type = 'NBHF'
-    else:
-        Type = 'LQ-NBHF'
-    # end
-    return Type
-
-
-def Behaviour(CT):
-    """
-        THIS FUNCTION IS STILL UNDER DEVELOPMENT
-
-        Based on the patterns in repetition rates in NBHF and LQ-NBHF click trains, this functions classify these
-        patterns into either of 5 categories:
-            Orientation: low repetition rates (below 100 clicks per second), indicating the animal is exploring the
-                environment without focusing on any object in particular
-            Foraging: increase in click production to well over 100 clicks per second, reaching up to over 600
-            Socialising: repetition rates over 100 clicks per second, or decreasing pattern
-            Unknown: neither of the patterns described above
-            Sonar: fixed frequency and repetition rate. These vary depending on the area.
-
-        Parameters:
-            CT = click train
-    """
-    CFDiff = CT.CF.diff()
-    PercChangeCF = (CFDiff / CT.CF[0:-1 - 1]) * 100
-    MeanPF = CT.CF.mean()
-    MeanPercChangeCF = abs(PercChangeCF).mean()
-    CPS = CT.CPS
-    MedianCPS = CPS.median()
-    L = len(CPS)
-    SortedCPS = CPS.values.copy()
-    SortedCPS.sort()
-    CPS90Perc1 = SortedCPS[0:math.floor(0.90 * L)]
-    CPS20 = CPS[0:math.floor(L * 0.2)].mean()
-    CPS50 = CPS[math.floor(0.2 * L):math.floor(0.8 * L)].mean()
-    CPS90 = CPS[math.floor(0.8 * L):-1].mean()
-    if MeanPF > 140000 and 8.5 > MedianCPS > 7.1 and MeanPercChangeCF < 0.5:
-        Behav = 'Sonar'
-    elif all(CPS90Perc1 < 100):
-        Behav = 'Orientation'
-    else:
-        CPS90Perc2 = SortedCPS[math.floor(0.10 * L):-1]
-        if all(CPS90Perc2 > 100):
-            Behav = 'Socialising'
-        else:
-            BreakingPoint = CPS[CPS > 100].index.to_series()
-            DiffBP = BreakingPoint.diff()
-            BP = DiffBP[DiffBP == 1].index
-            if len(BP) > 0:
-                Pos = BreakingPoint[BP[0]]
-                if len(BP) > 0 and Pos > 5 and len(CPS) > Pos + 5:
-                    Before = CPS[Pos - 5:Pos].mean()
-                    After = CPS[Pos:Pos + 5].mean()
-                else:
-                    Before = 0
-                    After = 0
-                # end
-                if Before < 100 and After > 100:
-                    Behav = 'Foraging'
-                else:
-                    if CPS90Perc1.mean() > 120:
-                        Behav = 'Socialising'
-                    elif CPS20 > 100 and 100 > CPS50 > CPS90:
-                        Behav = 'Socialising'
-                    else:
-                        Behav = 'Unknown'
-                    # end
-                # end
-            else:
-                if CPS90Perc1.mean() > 150:
-                    Behav = 'Socialising'
-                elif CPS20 > 100 and CPS50 < 100 and CPS90 < 100:
-                    Behav = 'Socialising'
-                else:
-                    Behav = 'Unknown'
-    return Behav
 
 
 class WinTable(QtWidgets.QMainWindow):
@@ -798,7 +329,7 @@ class Ui_MainWindow(object):
 
         self.OpenCTFig = WinTable()
         self.OpenCTPan = QtWidgets.QFrame(self.OpenCTFig)
-        self.OpenCTCancelButton = QtWidgets.QPushButton(self.OpenCTPan)
+        self.open_ct_cancel_b = QtWidgets.QPushButton(self.OpenCTPan)
         self.OpenCTButton = QtWidgets.QPushButton(self.OpenCTPan)
 
         self.SelectFolderText1 = QtWidgets.QLabel(self.OpenCTPan)
@@ -1121,7 +652,6 @@ class Ui_MainWindow(object):
         self.CheckAllFoldersMetr.setText('Include subfolders')
         self.CheckAllFoldersMetr.setChecked(True)
 
-        # TODO SHOULD CALL MetricBrowse.py here
         self.MetricBrowseButton.clicked.connect(self.MetricsBrowse)
 
         # Metrics Table
@@ -1617,7 +1147,7 @@ class Ui_MainWindow(object):
         if len(CTTemp) > 9:
             fs = 1 / (CTTemp.iloc[3]['ICI'] / (
                     1000 * (CTTemp.iloc[3]["start_sample"] - CTTemp.iloc[2]["start_sample"])))
-            CTTemp = NewICI(CTTemp, fs)
+            CTTemp = click_trains.NewICI(CTTemp, fs)
             CTTemp.loc[:, 'SumMs'] = int(0)
             # print(CTTemp)
             for i in range(1, len(CTTemp)):
@@ -1955,8 +1485,8 @@ class Ui_MainWindow(object):
 
     def MetricsBrowse(self):
         global BrowseSelectedFolder
-        root = tk.Tk()
-        root.withdraw()
+        self.root_metric_browse_b = tk.Tk()
+        self.root_metric_browse_b.withdraw()
         BrowseSelectedFolder = filedialog.askdirectory()
         self.SelectFolderMetricEdit.setText(BrowseSelectedFolder)
 
@@ -2465,22 +1995,22 @@ class Ui_MainWindow(object):
         self.OpenCTButton.setGeometry(40, 140, 100, 30)
         self.OpenCTButton.clicked.connect(self.OpenCT)
         # Cancel button
-        self.OpenCTCancelButton.setText('Cancel')
-        self.OpenCTCancelButton.setGeometry(210, 140, 100, 30)
-        self.OpenCTCancelButton.clicked.connect(self.OpenCTCancel)
+        self.open_ct_cancel_b.setText('Cancel')
+        self.open_ct_cancel_b.setGeometry(210, 140, 100, 30)
+        self.open_ct_cancel_b.clicked.connect(self.open_ct_cancel)
         # Disable resize and show menu
         self.OpenCTFig.setFixedSize(380, 210)
         self.OpenCTFig.show()
 
     def BrowseButtonDet(self):
-        root = tk.Tk()
-        root.withdraw()
+        self.root_browse_button_det = tk.Tk()
+        self.root_browse_button_det.withdraw()
         SelectedFolderDet = filedialog.askdirectory()
         self.FolderPathDet.setText(SelectedFolderDet)
 
     def BrowseButtonPorCC(self):
-        root = tk.Tk()
-        root.withdraw()
+        self.root_browse_button_porcc = tk.Tk()
+        self.root_browse_button_porcc.withdraw()
         SelectedFolderPorCC = filedialog.askdirectory()
         self.FolderPathPorCC.setText(SelectedFolderPorCC)
 
@@ -2530,8 +2060,8 @@ class Ui_MainWindow(object):
         # TODO make only one cancel function
 
     def NewCTBrowse(self):
-        root = tk.Tk()
-        root.withdraw()
+        self.root_new_ct_browse = tk.Tk()
+        self.root_new_ct_browse.withdraw()
         SelectedFolderNewCT = filedialog.askdirectory()
         self.FolderPathNewCT.setText(SelectedFolderNewCT)
 
@@ -2541,6 +2071,7 @@ class Ui_MainWindow(object):
         """
         global CP  # sset, srise
         self.NewCTFig.close()
+
         MainFolder = self.FolderPathNewCT.text()
         latitude = float(self.LatEdit.text())
         longitude = float(self.LongEdit.text())
@@ -2582,7 +2113,7 @@ class Ui_MainWindow(object):
                     CP.to_csv(CPFileName, index=False)
 
             fs = 576000  # I will need a settings file
-            Clicks, thisCTInfo, CP = ExtractPatterns(CP, fs, latitude, longitude)
+            Clicks, thisCTInfo, CP = click_trains.ExtractPatterns(CP, fs, latitude, longitude)
             if myFolders == MainFolder:
                 CTInfoFileName = MainFolder + '/CTInfo.csv'
                 ClicksFileName = MainFolder + '/Clicks.csv'
@@ -2599,13 +2130,13 @@ class Ui_MainWindow(object):
                 CPFileName = MainFolder + '/' + myFolder + '/CP.csv'
                 CP.to_csv(CPFileName, index=False)
 
-    def OpenCTCancel(self):
+    def open_ct_cancel(self):
         self.OpenCTFig.close()
 
     # OPEN CT
     def PushBrowseButtonOpenCT(self):
-        root = tk.Tk()
-        root.withdraw()
+        self.root_open_ct_browse_b = tk.Tk()
+        self.root_open_ct_browse_b.withdraw()
         self.SelectedFolderCT = filedialog.askdirectory()
         self.FolderPathOpenCT.setText(self.SelectedFolderCT)
 
@@ -2712,10 +2243,10 @@ class Ui_MainWindow(object):
         # self.OpenCTButton.setGeometry(40, 490, 100, 30)
         # self.OpenCTButton.clicked.connect(self.OKButtonPorCC)
         # # Cancel button
-        # self.OpenCTCancelButton = QtWidgets.QPushButton(self.PorCCSetPan)
-        # self.OpenCTCancelButton.setText('Cancel')
-        # self.OpenCTCancelButton.setGeometry(210, 490, 100, 30)
-        # self.OpenCTCancelButton.clicked.connect(self.CancelButtonPorCC)
+        # self.open_ct_cancel_b = QtWidgets.QPushButton(self.PorCCSetPan)
+        # self.open_ct_cancel_b.setText('Cancel')
+        # self.open_ct_cancel_b.setGeometry(210, 490, 100, 30)
+        # self.open_ct_cancel_b.clicked.connect(self.CancelButtonPorCC)
         # # Disable resize and show menu
         # self.MenuPorCCF.setFixedSize(360, 550)
         # self.MenuPorCCF.show()
