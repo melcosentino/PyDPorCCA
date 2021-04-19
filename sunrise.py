@@ -1,5 +1,18 @@
 import math
 
+"""
+Functions developed by oortCloud (shorturl.at/nyDP9) and adapted by Mel Cosentino. 
+Parameters:
+    day: (type: int)
+    month: (type: int)
+    year: (type: int)
+    latitude: in decimal degrees (type: float)
+    longitude: in decimal degrees (type: float)
+Returns:
+    sunrise time: hour and minute (type: int) 
+    sunset time: hour and minute (type: int) 
+"""
+
 def forceRange(v, maxi):
     # force v to be >= 0 and < max
     if v < 0:
