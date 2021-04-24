@@ -287,6 +287,8 @@ def CTInfoMaker(myCTInfo, myCTTemp, myLat, myLong):
             DayNight = 'Night'
         else:
             DayNight = 'Day'
+    else:
+        DayNight = 'Day'
     # Type
     Type = CTType(myCTTemp)
     if Type == 'Noise':

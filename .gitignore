@@ -4,3 +4,5 @@
 pyvenv.cfg
 Lib/
 Scripts - Copy/
+_pycache_/
+create_settings_file.py

@@ -6,18 +6,26 @@ Parameters:
     - Serial number
     - 
     Classifier:
-    - LQ
-    - HQ
+    - LQ: float
+    - HQ: float
+
     Click Trains:
-    - Latitude
-    - Longitude
+    - Latitude: in decimal degrees
+    - Longitude: in decimal degrees
 
 """
 
 
-
 def generate_set_file(function):
-    if function == "Detector":
+    if function == "detector_porcc":
+        f = open("SettingsDPorCCA.txt", "w")
+        f.write("Filter: ")
+        f.close()
+    elif function == "detector_only":
         f = open("SettingsDPorCCA.txt", "w")
         f.write("Woops! I have deleted the content!")
+        f.close()
+    elif function == "click_trains":
+        f = open("SettingsDPorCCA.txt", "w")
+        f.write("Latitude: , Longitude")
         f.close()

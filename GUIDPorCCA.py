@@ -1489,6 +1489,7 @@ class Ui_MainWindow(object):
         self.root_metric_browse_b.withdraw()
         BrowseSelectedFolder = filedialog.askdirectory()
         self.SelectFolderMetricEdit.setText(BrowseSelectedFolder)
+        self.root_metric_browse_b.mainloop(0)
 
     def UploadMetricData(self):
         """
@@ -1969,9 +1970,11 @@ class Ui_MainWindow(object):
                 detector.detect_click_clips_folder(ThisFolderSave, blocksize=blocksize, zip_mode=zip_mode)
         else:
             detector.detect_click_clips_folder(MainFolder, blocksize=blocksize, zip_mode=zip_mode)
+        self.root_browse_button_det.mainloop(0)
 
     def CancelDetector(self):
         self.MenuDetSetFig.close()
+        self.root_browse_button_det.mainloop(0)
 
     def OpenCTMenu(self):
         self.OpenCTFig.setGeometry(350, 350, 380, 210)
@@ -2007,12 +2010,14 @@ class Ui_MainWindow(object):
         self.root_browse_button_det.withdraw()
         SelectedFolderDet = filedialog.askdirectory()
         self.FolderPathDet.setText(SelectedFolderDet)
+        self.root_browse_button_det.mainloop(0)
 
     def BrowseButtonPorCC(self):
         self.root_browse_button_porcc = tk.Tk()
         self.root_browse_button_porcc.withdraw()
         SelectedFolderPorCC = filedialog.askdirectory()
         self.FolderPathPorCC.setText(SelectedFolderPorCC)
+        self.root_browse_button_porcc.mainloop(0)
 
     def NewCTMenu(self):
         self.NewCTFig.setGeometry(100, 100, 360, 320)
@@ -2062,8 +2067,9 @@ class Ui_MainWindow(object):
     def NewCTBrowse(self):
         self.root_new_ct_browse = tk.Tk()
         self.root_new_ct_browse.withdraw()
-        SelectedFolderNewCT = filedialog.askdirectory()
+        SelectedFolderNewCT = tk.filedialog.askdirectory()
         self.FolderPathNewCT.setText(SelectedFolderNewCT)
+        self.root_new_ct_browse.mainloop(0)
 
     def IdentifyCT(self):
         """
@@ -2071,18 +2077,28 @@ class Ui_MainWindow(object):
         """
         global CP  # sset, srise
         self.NewCTFig.close()
-
         MainFolder = self.FolderPathNewCT.text()
         latitude = float(self.LatEdit.text())
         longitude = float(self.LongEdit.text())
         if self.InclSubFoldersNewCT.isChecked():
             myFolders = [item for item in os.listdir(MainFolder) if os.path.isdir(os.path.join(MainFolder, item))]
+            if len(myFolders) == 0:
+                warnings.warn("You selected 'Include subfolders' but there are no subfolders")
         else:
-            myFolders = MainFolder
-            print(myFolders)
+            FilesInFolder = os.listdir(MainFolder)
+            ClipsFiles = [s for s in FilesInFolder if "clips.csv" in s]
+            if len(ClipsFiles) == 0:
+                warnings.warn("You did not select 'Include subfolders' and there are no files here")
+                myFolders = 'None'
+            else:
+                myFolders = MainFolder
 
         for myFolder in myFolders:
-            if myFolders == MainFolder:
+            a = 1
+            if myFolders == 'None':
+                warnings.warn("There were no files to analyse. Select another folder")
+                FilesInFolder = []
+            elif myFolders == MainFolder:
                 FilesInFolder = os.listdir(MainFolder)
             else:
                 FilesInFolder = os.listdir(MainFolder + '/' + myFolder)
@@ -2100,48 +2116,55 @@ class Ui_MainWindow(object):
                     CP = pd.read_csv(CPFileName)
                 else:
                     DetClicks = [s for s in FilesInFolder if "clips.csv" in s]
-                    CP = pd.DataFrame()
-                    for thisFile in DetClicks:
+                    if len(DetClicks) > 0:
+                        CP = pd.DataFrame()
+                        for thisFile in DetClicks:
+                            if myFolders == MainFolder:
+                                CPFile = MainFolder + '/' + thisFile
+                            else:
+                                CPFile = MainFolder + '/' + myFolder + '/' + thisFile
+                            TempCP = pd.read_csv(CPFile, index_col=0)
+                            TempCP['id'] = TempCP.index.values
+                            CP = CP.append(TempCP, ignore_index=True)
                         if myFolders == MainFolder:
-                            CPFile = MainFolder + '/' + thisFile
+                            CPFileName = MainFolder + '/CP.csv'
                         else:
-                            CPFile = MainFolder + '/' + myFolder + '/' + thisFile
-                        TempCP = pd.read_csv(CPFile, index_col=0)
-                        TempCP['id'] = TempCP.index.values
-                        CP = CP.append(TempCP, ignore_index=True)
-                    if myFolders == MainFolder:
-                        CPFileName = MainFolder + '/CP.csv'
-                    else:
-                        CPFileName = MainFolder + '/' + myFolder + '/CP.csv'
-                    CP.to_csv(CPFileName, index=False)
+                            CPFileName = MainFolder + '/' + myFolder + '/CP.csv'
+                        CP.to_csv(CPFileName, index=False)
 
-            fs = 576000  # I will need a settings file
-            Clicks, thisCTInfo, CP = click_trains.ExtractPatterns(CP, fs, latitude, longitude)
-            if myFolders == MainFolder:
-                CTInfoFileName = MainFolder + '/CTInfo.csv'
-                ClicksFileName = MainFolder + '/Clicks.csv'
-                thisCTInfo.to_csv(CTInfoFileName, index=False)
-                Clicks.to_csv(ClicksFileName, index=False)
-                CPFileName = MainFolder + '/CP.csv'
-                CP.to_csv(CPFileName, index=False)
-                break
-            else:
-                CTInfoFileName = MainFolder + '/' + myFolder + '/CTInfo.csv'
-                ClicksFileName = MainFolder + '/' + myFolder + '/Clicks.csv'
-                thisCTInfo.to_csv(CTInfoFileName, index=False)
-                Clicks.to_csv(ClicksFileName, index=False)
-                CPFileName = MainFolder + '/' + myFolder + '/CP.csv'
-                CP.to_csv(CPFileName, index=False)
+                fs = 576000  # I will need a settings file
+                Clicks, thisCTInfo, CP = click_trains.ExtractPatterns(CP, fs, latitude, longitude)
+                if myFolders == MainFolder:
+                    CTInfoFileName = MainFolder + '/CTInfo.csv'
+                    ClicksFileName = MainFolder + '/Clicks.csv'
+                    thisCTInfo.to_csv(CTInfoFileName, index=False)
+                    Clicks.to_csv(ClicksFileName, index=False)
+                    CPFileName = MainFolder + '/CP.csv'
+                    CP.to_csv(CPFileName, index=False)
+                    self.root_new_ct_browse.mainloop(0)
+                    a = a + 1
+                    if a == 2:
+                        break
+                else:
+                    CTInfoFileName = MainFolder + '/' + myFolder + '/CTInfo.csv'
+                    ClicksFileName = MainFolder + '/' + myFolder + '/Clicks.csv'
+                    thisCTInfo.to_csv(CTInfoFileName, index=False)
+                    Clicks.to_csv(ClicksFileName, index=False)
+                    CPFileName = MainFolder + '/' + myFolder + '/CP.csv'
+                    CP.to_csv(CPFileName, index=False)
+        self.root_new_ct_browse.mainloop(0)
 
     def open_ct_cancel(self):
         self.OpenCTFig.close()
+        self.root_new_ct_browse.mainloop(0)
 
     # OPEN CT
     def PushBrowseButtonOpenCT(self):
         self.root_open_ct_browse_b = tk.Tk()
-        self.root_open_ct_browse_b.withdraw()
+        self.root_open_ct_browse_b.destroy()
         self.SelectedFolderCT = filedialog.askdirectory()
         self.FolderPathOpenCT.setText(self.SelectedFolderCT)
+        self.root_open_ct_browse_b.mainloop(0)
 
     def OpenCT(self):
         global CP, CTInfo
@@ -2154,9 +2177,10 @@ class Ui_MainWindow(object):
         CTInfo.reset_index(inplace=True, drop=True)
         NumCT = int(CTInfo.CTNum.iloc[0])
         self.UpdateCT(NumCT, CP, CTInfo)
+        self.root_open_ct_browse_b.mainloop(0)
 
     def SaveUpdates(self):
-        FullName = self.SelectedFolder + '/CTInfo.csv'
+        FullName = self.SelectedFolderCT + '/CTInfo.csv'
         CTInfo.to_csv(FullName)
 
     def OpenPorCCSetMenu(self):
