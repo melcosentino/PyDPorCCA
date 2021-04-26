@@ -35,7 +35,6 @@ def ExtractPatterns(myCP, myFs, lat, long):
                file.
 
     """
-    CTNum = 0
     ColNames = ['CTNum', 'Date', 'DayNight', 'Length', 'CTType', 'Behav', 'Calf', 'Notes']
     myCTInfo = pd.DataFrame(data=None, columns=ColNames)
     myCP = NewICI(myCP, myFs)
@@ -320,7 +319,7 @@ def CTType(CT):
     MedianPercChangeCF = abs(PercChangeCF[1::]).median()
     SDCF = CT.CF.std()
     CPSDiff = CT.CPS.diff()
-    # CPSDiff = CPSDiff.drop([0])
+    CPSDiff = CPSDiff.replace((0, np.nan))
     PercChange = (CPSDiff / CT.CPS[::-1]) * 100
     MedianPercChangeCPS = abs(PercChange[1::]).median()
     if len(CT) < 10:
@@ -333,7 +332,6 @@ def CTType(CT):
         Type = 'NBHF'
     else:
         Type = 'LQ-NBHF'
-    # end
     return Type
 
 
@@ -386,7 +384,6 @@ def Behaviour(CT):
                 else:
                     Before = 0
                     After = 0
-                # end
                 if Before < 100 and After > 100:
                     Behav = 'Foraging'
                 else:
@@ -396,8 +393,6 @@ def Behaviour(CT):
                         Behav = 'Socialising'
                     else:
                         Behav = 'Unknown'
-                    # end
-                # end
             else:
                 if CPS90Perc1.mean() > 150:
                     Behav = 'Socialising'
