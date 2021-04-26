@@ -78,7 +78,6 @@ def ExtractPatterns(myCP, myFs, lat, long):
             TimeGaps = TimeGaps.unique()
             TimeGaps = pd.Series(TimeGaps)
             TimeGaps = TimeGaps.sort_values()
-            print(TimeGaps)
 
         TimeGaps.reset_index(inplace=True, drop=True)
         DiffTimeGaps = TimeGaps.diff()
@@ -277,8 +276,6 @@ def CTInfoMaker(myCTInfo, myCTTemp, myLat, myLong):
 
     if int(sriseH) < int(HH) < int(ssetH):
         DayNight = 'Day'
-    elif int(sriseH) > int(HH) > int(ssetH):
-        DayNight = 'Night'
     elif int(sriseH) == int(HH):
         if int(MM) >= int(sriseM):
             DayNight = 'Day'
@@ -289,8 +286,10 @@ def CTInfoMaker(myCTInfo, myCTTemp, myLat, myLong):
             DayNight = 'Night'
         else:
             DayNight = 'Day'
+    elif int(sriseH) > int(HH) > int(ssetH):
+        DayNight = 'Night'
     else:
-        DayNight = 'Day'
+        DayNight = 'Night'
     # Type
     Type = CTType(myCTTemp)
     if Type == 'Noise':

@@ -1144,7 +1144,6 @@ class Ui_MainWindow(object):
                     1000 * (CTTemp.iloc[3]["start_sample"] - CTTemp.iloc[2]["start_sample"])))
             CTTemp = click_trains.NewICI(CTTemp, fs)
             CTTemp.loc[:, 'SumMs'] = int(0)
-            # print(CTTemp)
             for i in range(1, len(CTTemp)):
                 CTTemp.SumMs[i] = int(CTTemp.SumMs[i - 1]) + int(CTTemp.ICI[i])
             CTTemp.SumMs = CTTemp.SumMs / 1000
@@ -1252,9 +1251,7 @@ class Ui_MainWindow(object):
             self.ICIAxesCT.clear()
             self.FreqAxesCT.clear()
             RowCT = CTInfo[CTInfo.CTNum == NumCT].index[0]
-            # print(RowCT)
             NumCT = int(CTInfo.CTNum[RowCT + 1])
-            # print(NumCT)
             self.UpdateCT(NumCT, CP, CTInfo)
 
     def NotesCT(self):
@@ -1520,8 +1517,6 @@ class Ui_MainWindow(object):
                     # Clicks = [s for s in Files if "Clicks.csv" in s]
                     Date = CTInfo.Date[0]
                     NewDate = int(Date[0:4] + Date[5:7] + Date[8:10])
-
-                    print(NewDate)
 
                     # Metrics.Date[d-2] = strftime(datetime(yyyy, mmm, dd))
 
