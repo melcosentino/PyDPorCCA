@@ -11,11 +11,9 @@ __credits__ = "Mel Cosentino"
 __email__ = "orcinus.orca.1758@gmail.com"
 __status__ = "Development"
 
-import math
 import os
 import tkinter as tk
-from datetime import datetime
-from datetime import time
+import warnings
 from tkinter import filedialog
 
 import matplotlib.pyplot as plt
@@ -25,8 +23,6 @@ import pyhydrophone as pyhy
 import pyqtgraph as pg
 import pyqtgraph.opengl as gl
 import soundfile
-
-import warnings
 from PyQt5 import QtCore, QtGui
 from PyQt5 import QtWidgets
 from pyporcc import click_detector
@@ -34,14 +30,12 @@ from pyporcc import porcc
 from scipy import signal
 from tqdm import tqdm
 
-import isoutlier
 import click_trains
-import sunrise
+
 pd.options.mode.chained_assignment = None
 
 global BrowseSelectedFolder, CTInfo, CTTemp, NHyd, CP, topLevelFolderMetrics
 global thisFolder, sset, srise, Fs, PosPorMin, SummaryTable, numberOfFoldersMetrics
-
 
 
 def UpdateWaterfall(XLimMin, YLimMin, ZLimMin, XLimMax, YLimMax, ZLimMax):
@@ -794,7 +788,6 @@ class Ui_MainWindow(object):
         # self.MenuSetPorCC.triggered.connect(lambda: self.OpenPorCCSetMenu())
         self.MenuSetDetector.triggered.connect(lambda: self.OpenDetSetMenu())
 
-
     # FUNCTIONS ###
     # Translate
     def retranslateUi(self, MainWindow):
@@ -909,6 +902,7 @@ class Ui_MainWindow(object):
 
     def MetricsOK(self):
         pass
+
     # #     # search dates within the selected folder
     # #     # Name of folders are 20150812 -> 12 Aug 2015
     # #     # Create a list of days and display in dropdown button
@@ -1507,9 +1501,9 @@ class Ui_MainWindow(object):
         SummaryFile = [s for s in FilesAndFolders if "SummaryTable.csv" in s]
         # Open if ready
         if PPMFile and SummaryFile:
-            FileToOpenPPM = topLevelFolderMetrics + '/PosPorMin.csv'
+            FileToOpenPPM = os.path.join(topLevelFolderMetrics, 'PosPorMin.csv')
             PPM = pd.read_csv(FileToOpenPPM)
-            FileToOpenCT = topLevelFolderMetrics + '/SummaryTable.csv'
+            FileToOpenCT = os.path.join(topLevelFolderMetrics, 'SummaryTable.csv')
             SumTable = pd.read_csv(FileToOpenCT)
         else:  # If the data needs to be prepared
             PPM = pd.DataFrame()
@@ -1964,7 +1958,7 @@ class Ui_MainWindow(object):
             else:
                 Folders = [s for s in FilesAndFolders if os.path.isdir(os.path.join(MainFolder, s))]
             for myFolder in Folders:
-                ThisFolderSave = MainFolder + '/' + myFolder
+                ThisFolderSave = os.path.join(MainFolder, myFolder)
                 print('Detecting clicks in', ThisFolderSave)
                 if not zip_mode:
                     detector.save_folder = ThisFolderSave
@@ -2098,9 +2092,9 @@ class Ui_MainWindow(object):
                                   "folder - please try again")
                     myFolders = 'None'
                 else:
-                    myFolders = MainFolder
+                    myFolders = [MainFolder]
             else:
-                myFolders = MainFolder
+                myFolders = [MainFolder]
 
         for myFolder in myFolders:
             a = 1
@@ -2110,16 +2104,16 @@ class Ui_MainWindow(object):
             elif myFolders == MainFolder:
                 FilesInFolder = os.listdir(MainFolder)
             else:
-                FilesInFolder = os.listdir(MainFolder + '/' + myFolder)
+                FilesInFolder = os.listdir(os.path.join(MainFolder, myFolder))
             if any("." in s for s in FilesInFolder):
                 CPFile = [s for s in FilesInFolder if "CP.csv" in s]
                 if len(CPFile) > 0:
                     if myFolders == MainFolder:
                         print('Processing folder', MainFolder)
-                        CPFileName = MainFolder + '/CP.csv'
+                        CPFileName = os.path.join(MainFolder, 'CP.csv')
                     else:
                         print('Processing folder', myFolders)
-                        CPFileName = MainFolder + '/' + myFolder + '/CP.csv'
+                        CPFileName = os.path.join(MainFolder, myFolder, 'CP.csv')
                     CP = pd.read_csv(CPFileName, sep=',')
                 else:
                     DetClicks = [s for s in FilesInFolder if "clips.csv" in s]
@@ -2127,37 +2121,37 @@ class Ui_MainWindow(object):
                         CP = pd.DataFrame()
                         for thisFile in DetClicks:
                             if myFolders == MainFolder:
-                                CPFile = MainFolder + '/' + thisFile
+                                CPFile = os.path.join(MainFolder, thisFile)
                             else:
-                                CPFile = MainFolder + '/' + myFolder + '/' + thisFile
+                                CPFile = os.path.join(MainFolder, myFolder, thisFile)
                             TempCP = pd.read_csv(CPFile, index_col=0)
                             TempCP['id'] = TempCP.index.values
                             CP = CP.append(TempCP, ignore_index=True)
                         if myFolders == MainFolder:
-                            CPFileName = MainFolder + '/CP.csv'
+                            CPFileName = os.path.join(MainFolder, 'CP.csv')
                         else:
-                            CPFileName = MainFolder + '/' + myFolder + '/CP.csv'
+                            CPFileName = os.path.join(MainFolder, myFolder, 'CP.csv')
                         CP.to_csv(CPFileName, index=False)
 
                 fs = 576000  # I will need a settings file
                 Clicks, thisCTInfo, CP = click_trains.ExtractPatterns(CP, fs, latitude, longitude)
                 if myFolders == MainFolder:
-                    CTInfoFileName = MainFolder + '/CTInfo.csv'
-                    ClicksFileName = MainFolder + '/Clicks.csv'
+                    CTInfoFileName = os.path.join(MainFolder, 'CTInfo.csv')
+                    ClicksFileName = os.path.join(MainFolder, 'Clicks.csv')
                     thisCTInfo.to_csv(CTInfoFileName, index=False)
                     Clicks.to_csv(ClicksFileName, index=False)
-                    CPFileName = MainFolder + '/CP.csv'
+                    CPFileName = os.path.join(MainFolder, 'CP.csv')
                     CP.to_csv(CPFileName, index=False)
                     self.root_new_ct_browse.mainloop(0)
                     a = a + 1
                     if a == 2:
                         break
                 else:
-                    CTInfoFileName = MainFolder + '/' + myFolder + '/CTInfo.csv'
-                    ClicksFileName = MainFolder + '/' + myFolder + '/Clicks.csv'
+                    CTInfoFileName = os.path.join(MainFolder, myFolder, 'CTInfo.csv')
+                    ClicksFileName = os.path.join(MainFolder, myFolder, 'Clicks.csv')
                     thisCTInfo.to_csv(CTInfoFileName, index=False)
                     Clicks.to_csv(ClicksFileName, index=False)
-                    CPFileName = MainFolder + '/' + myFolder + '/CP.csv'
+                    CPFileName = os.path.join(MainFolder, myFolder, 'CP.csv')
                     CP.to_csv(CPFileName, index=False)
         self.root_new_ct_browse.mainloop(0)
 
@@ -2176,9 +2170,9 @@ class Ui_MainWindow(object):
     def OpenCT(self):
         global CP, CTInfo
         self.OpenCTFig.close()
-        CPFileName = self.SelectedFolderCT + "/Clicks.csv"
+        CPFileName = os.path.join(self.SelectedFolderCT, "Clicks.csv")
         CP = pd.read_csv(CPFileName)
-        CTInfoFileName = self.SelectedFolderCT + "/CTInfo.csv"
+        CTInfoFileName = os.path.join(self.SelectedFolderCT, "CTInfo.csv")
         CTInfo = pd.read_csv(CTInfoFileName)
         CTInfo = CTInfo[CTInfo.Length > 9]
         CTInfo.reset_index(inplace=True, drop=True)
@@ -2187,7 +2181,7 @@ class Ui_MainWindow(object):
         self.root_open_ct_browse_b.mainloop(0)
 
     def SaveUpdates(self):
-        FullName = self.SelectedFolderCT + '/CTInfo.csv'
+        FullName = os.path.join(self.SelectedFolderCT, 'CTInfo.csv')
         CTInfo.to_csv(FullName)
 
     def OpenPorCCSetMenu(self):
@@ -2305,6 +2299,7 @@ class Ui_MainWindow(object):
     def ApplyButtonPorCC(self):
         pass
         # TODO make the apply PorCC function
+
 
 if __name__ == "__main__":
     import sys

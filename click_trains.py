@@ -1,10 +1,13 @@
-import pandas as pd
-import numpy as np
+import math
 import warnings
-import sunrise
-import math
+
+import numpy as np
+import pandas as pd
+from tqdm import tqdm
+
 import isoutlier
-import math
+import sunrise
+
 
 def ExtractPatterns(myCP, myFs, lat, long):
     """
@@ -68,7 +71,7 @@ def ExtractPatterns(myCP, myFs, lat, long):
             Length = int(DiffTimeGaps[LongCTs[m]])
             CTsInside = math.floor(Length / 1000) + 1  # integer less than
             # Add Positions to TimeGaps
-            PosInCP = int(TimeGaps[LongCTs[m]-1])
+            PosInCP = int(TimeGaps[LongCTs[m] - 1])
             NextPos = int(TimeGaps[LongCTs[m]])
             NewPos = np.linspace(start=PosInCP, stop=NextPos, num=CTsInside + 2).astype(int)
             NewPos = pd.Series(NewPos)
@@ -84,17 +87,17 @@ def ExtractPatterns(myCP, myFs, lat, long):
     else:
         CTs = DiffTimeGaps[DiffTimeGaps > 9].index
 
-    for j in range(0, len(CTs)+1):  # j runs through all the CT c
+    for j in tqdm(range(0, len(CTs) + 1), total=len(CTs) + 1):  # j runs through all the CT c
         if j == 0:
             Start = TimeGaps[0]
-            End = TimeGaps[CTs[0]]-1
-        elif j == (len(CTs)+1):
+            End = TimeGaps[CTs[0]] - 1
+        elif j == (len(CTs) + 1):
             Start = TimeGaps[CTs[-1]]
             End = len(myCP)
         else:
             i = j - 1
-            Start = TimeGaps[CTs[i]-1]
-            End = TimeGaps[CTs[i]]-1
+            Start = TimeGaps[CTs[i] - 1]
+            End = TimeGaps[CTs[i]] - 1
         CT = myCP[Start:End]
         CT.reset_index(inplace=True, drop=True)
         CT = NewICI(CT, myFs)
@@ -126,8 +129,8 @@ def ExtractPatterns(myCP, myFs, lat, long):
             elif len(CT) > 20:
                 # Finding stable areas
                 CPSDiff = CT.CPS.diff()
-                PercChangeS = (CPSDiff / CT.CPS[1:-1 - 1]) * 100
-                PercChangeS = abs(PercChangeS[2:-1])
+                PercChangeS = (CPSDiff / CT.CPS[::-1]) * 100
+                PercChangeS = abs(PercChangeS[1::])
                 window_size = 3
                 i = 0
                 PercCPSDiff = []
@@ -313,13 +316,13 @@ def CTType(CT):
             Type of click train
     """
     CFDiff = CT.CF.diff()
-    PercChangeCF = (CFDiff / CT.CF[0:-1 - 1]) * 100
-    MedianPercChangeCF = abs(PercChangeCF).median()
+    PercChangeCF = (CFDiff / CT.CF[::-1]) * 100
+    MedianPercChangeCF = abs(PercChangeCF[1::]).median()
     SDCF = CT.CF.std()
     CPSDiff = CT.CPS.diff()
-    CPSDiff = CPSDiff.drop([0])
-    PercChange = (CPSDiff / CT.CPS[1:-1 - 1]) * 100
-    MedianPercChangeCPS = abs(PercChange[1:-1]).median()
+    # CPSDiff = CPSDiff.drop([0])
+    PercChange = (CPSDiff / CT.CPS[::-1]) * 100
+    MedianPercChangeCPS = abs(PercChange[1::]).median()
     if len(CT) < 10:
         Type = 'Noise'
     elif MedianPercChangeCF < 0.5 and MedianPercChangeCPS < 0.05 and SDCF < 300:
@@ -351,7 +354,7 @@ def Behaviour(CT):
             CT = click train
     """
     CFDiff = CT.CF.diff()
-    PercChangeCF = (CFDiff / CT.CF[0:-1 - 1]) * 100
+    PercChangeCF = (CFDiff / CT.CF[0:-1]) * 100
     MeanPF = CT.CF.mean()
     MeanPercChangeCF = abs(PercChangeCF).mean()
     CPS = CT.CPS
@@ -362,13 +365,13 @@ def Behaviour(CT):
     CPS90Perc1 = SortedCPS[0:math.floor(0.90 * L)]
     CPS20 = CPS[0:math.floor(L * 0.2)].mean()
     CPS50 = CPS[math.floor(0.2 * L):math.floor(0.8 * L)].mean()
-    CPS90 = CPS[math.floor(0.8 * L):-1].mean()
+    CPS90 = CPS[math.floor(0.8 * L)::].mean()
     if MeanPF > 140000 and 8.5 > MedianCPS > 7.1 and MeanPercChangeCF < 0.5:
         Behav = 'Sonar'
     elif all(CPS90Perc1 < 100):
         Behav = 'Orientation'
     else:
-        CPS90Perc2 = SortedCPS[math.floor(0.10 * L):-1]
+        CPS90Perc2 = SortedCPS[math.floor(0.10 * L)::]
         if all(CPS90Perc2 > 100):
             Behav = 'Socialising'
         else:
@@ -403,4 +406,3 @@ def Behaviour(CT):
                 else:
                     Behav = 'Unknown'
     return Behav
-
