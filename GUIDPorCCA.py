@@ -32,6 +32,7 @@ from PyQt5 import QtWidgets
 from pyporcc import click_detector
 from pyporcc import porcc
 from scipy import signal
+from tqdm import tqdm
 
 import isoutlier
 import click_trains
@@ -2083,13 +2084,21 @@ class Ui_MainWindow(object):
         if self.InclSubFoldersNewCT.isChecked():
             myFolders = [item for item in os.listdir(MainFolder) if os.path.isdir(os.path.join(MainFolder, item))]
             if len(myFolders) == 0:
-                warnings.warn("You selected 'Include subfolders' but there are no subfolders")
+                warnings.warn("You selected 'Include subfolders' but there are no subfolders - please try again")
+                myFolders = "None"
+            else:
+                myFolders = [item for item in os.listdir(MainFolder) if os.path.isdir(os.path.join(MainFolder, item))]
         else:
             FilesInFolder = os.listdir(MainFolder)
             ClipsFiles = [s for s in FilesInFolder if "clips.csv" in s]
             if len(ClipsFiles) == 0:
-                warnings.warn("You did not select 'Include subfolders' and there are no files here")
-                myFolders = 'None'
+                CPFile = [s for s in FilesInFolder if "CP.csv" in s]
+                if len(CPFile) == 0:
+                    warnings.warn("You did not select 'Include subfolders' and there are no files to process in this "
+                                  "folder - please try again")
+                    myFolders = 'None'
+                else:
+                    myFolders = MainFolder
             else:
                 myFolders = MainFolder
 
@@ -2104,16 +2113,14 @@ class Ui_MainWindow(object):
                 FilesInFolder = os.listdir(MainFolder + '/' + myFolder)
             if any("." in s for s in FilesInFolder):
                 CPFile = [s for s in FilesInFolder if "CP.csv" in s]
-                if myFolders == MainFolder:
-                    print('Processing folder', MainFolder)
-                else:
-                    print('Processing folder', myFolders)
                 if len(CPFile) > 0:
                     if myFolders == MainFolder:
+                        print('Processing folder', MainFolder)
                         CPFileName = MainFolder + '/CP.csv'
                     else:
+                        print('Processing folder', myFolders)
                         CPFileName = MainFolder + '/' + myFolder + '/CP.csv'
-                    CP = pd.read_csv(CPFileName)
+                    CP = pd.read_csv(CPFileName, sep=',')
                 else:
                     DetClicks = [s for s in FilesInFolder if "clips.csv" in s]
                     if len(DetClicks) > 0:

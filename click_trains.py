@@ -86,8 +86,8 @@ def ExtractPatterns(myCP, myFs, lat, long):
 
     for j in range(0, len(CTs)+1):  # j runs through all the CT c
         if j == 0:
-            Start = 0
-            End = TimeGaps[0]-1
+            Start = TimeGaps[0]
+            End = TimeGaps[CTs[0]]-1
         elif j == (len(CTs)+1):
             Start = TimeGaps[CTs[-1]]
             End = len(myCP)
