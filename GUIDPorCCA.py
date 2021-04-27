@@ -2127,6 +2127,8 @@ class Ui_MainWindow(object):
                         else:
                             CPFileName = os.path.join(MainFolder, myFolder, 'CP.csv')
                         CP.to_csv(CPFileName, index=False)
+                        CP = pd.read_csv(CPFileName, sep=',')
+
 
                 fs = 576000  # I will need a settings file
                 Clicks, thisCTInfo, CP = click_trains.ExtractPatterns(CP, fs, latitude, longitude)
