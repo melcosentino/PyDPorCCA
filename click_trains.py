@@ -112,7 +112,7 @@ def ExtractPatterns(myCP, myFs, lat, long):
             FinalCT = CT.copy()
         else:
 
-            Outlier = isoutlier.isoutliers(CT.CPS)
+            Outlier = isoutlier.isoutliers(CT[['CPS']])
             HighCPS = CT.CPS > 100
             CT.drop(index=CT[HighCPS & Outlier].index)
             CT.reset_index(inplace=True, drop=True)
@@ -318,7 +318,7 @@ def CTType(CT):
     MedianPercChangeCF = abs(PercChangeCF[1::]).median()
     SDCF = CT.CF.std()
     CPSDiff = CT.CPS.diff()
-    CPSDiff = CPSDiff.replace((0, np.nan))
+    CT['CPS'] = CT.CPS.replace(0.0, np.nan)
     PercChange = (CPSDiff / CT.CPS[::-1]) * 100
     MedianPercChangeCPS = abs(PercChange[1::]).median()
     if len(CT) < 10:
