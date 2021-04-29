@@ -28,7 +28,8 @@ from PyQt5 import QtWidgets
 from pyporcc import click_detector
 from pyporcc import porcc
 from scipy import signal
-from tqdm import tqdm
+import zipfile
+import pathlib
 
 import click_trains
 
@@ -1398,6 +1399,11 @@ class Ui_MainWindow(object):
         self.UpdateSpec.clicked.connect(self.UpdateSpect)
 
         FileToOpen = CTTemp.filename[0]
+        if '.zip' in str(FileToOpen):
+            if isinstance(FileToOpen, str):
+                FileToOpen = pathlib.Path(FileToOpen)
+            zip_file = zipfile.ZipFile(FileToOpen.parent)
+            FileToOpen = zip_file.open(FileToOpen.name)
         Start = CTTemp.start_sample.iloc[0] - 50000
         if Start < 0:
             Start = 0
