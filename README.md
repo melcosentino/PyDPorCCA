@@ -1,28 +1,29 @@
  #D-PorCCA
-  D-PorCCA is a standalone desktop application with the goal to provide researchers with summary data to monitor harbour
+  D-PorCCA is a standalone desktop application aiming at providing researchers with summary data to monitor harbour
    porpoises from continuous recordings.  
    D = Detector
-   PorCC = Porpoise Click Classifier 
+   PorCC = Porpoise Click Classifier
    A = Application
-  
-Everything about PorCC can be found here: 
+
+#### Detector
+The Detector is an adaptation of PAMGuard's Click Detector Module (translated by Clea Parcerisas) that uses a trigger filter selecting clips that can 
+potentially be porpoise clicks (i.e., high energy content between 100 and 150 kHz)
+
+#### PorCC: 
 > Cosentino, M., Guarato, F., Tougaard, J., Nairn, D., Jackson, J. C., & Windmill, J. F. C. (2019). 
-> Porpoise click classifier (PorCC): A high-accuracy classifier to study harbour porpoises ( Phocoena phocoena ) in the wild . 
+> Porpoise click classifier (PorCC): A high-accuracy classifier to study harbour porpoises (*Phocoena phocoena*) in the wild . 
 > The Journal of the Acoustical Society of America, 145(6), 3427–3434. https://doi.org/10.1121/1.5110908
 
-In DPorCCA it is implemented via de package PyPorCC developed by Clea Parcerisas
-
-The PyPorCC package also provides an adapted alternative to PAMGuard's click detector that using a filter and a trigger 
-function selects clips that can potentially be clicks (high enery in the right frequency band)
+In DPorCCA, PorCC is implemented via de package pyporcc, developed by Clea Parcerisas
 
 ## Note
-This application is still under development
+DPorCCA is still under development
 
 
  ## INFORMATION ABOUT PYTHON FILES
 - click_trains.py: a series of functions to identify and classify click trains
-- isoutlier.py: identifies outliers in the data - from Matlab
-- sunrise.py: estimates sunset and sunrise times for a given location in a given day
+- isoutlier.py: identifies outliers in the data - translated from Matlab by Clea Parcerisas
+- sunrise.py: estimates sunset and sunrise times for a given location in a given day (GMT) from latitude and longitude
 - create_settings_file.py: generates setting files when using the Detector and PorCC.
 
 ### Examples:
@@ -55,7 +56,7 @@ Fields:
 - *XC*: maximum value of the cross-correlation coefficient carried out against a typical porpoise click, 
 - *Q*: defined as the RMS bandwidth divided the centroid frequency
 - *pyporcc*: class assigned by PorCC (1: high-quality click, 2: low-quality click)
-- *ICI*: inter-click interval
+- *ICI*: inter-click interval (ms)
 - *CPS*: clicks per second
 
 CTInfo = .csv file 

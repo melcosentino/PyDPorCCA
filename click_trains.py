@@ -60,6 +60,11 @@ def ExtractPatterns(myCP, myFs, lat, long):
     # # Find click trains
     TimeGaps = myCP.loc[(myCP['ICI'] > 700.0) | (myCP['ICI'] < 0.0)].index.to_series()
     TimeGaps.reset_index(inplace=True, drop=True)
+    if len(TimeGaps) == 0:
+        Vals = myCP.sort_values('ICI', ascending=False).head(int(myCP.shape[0] * .008)).copy()
+        Th = int(Vals.ICI.iloc[-1])
+        TimeGaps = myCP.loc[(myCP['ICI'] > Th) | (myCP['ICI'] < 0.0)].index.to_series()
+        TimeGaps.reset_index(inplace=True, drop=True)
 
     DiffTimeGaps = TimeGaps.diff()
     # Find very long CT and reduce them to CT with fewer than 1000 clicks
@@ -84,7 +89,8 @@ def ExtractPatterns(myCP, myFs, lat, long):
         CTs = DiffTimeGaps[DiffTimeGaps > 9].index
     else:
         CTs = DiffTimeGaps[DiffTimeGaps > 9].index
-
+    print(TimeGaps)
+    print(CTs)
     for j in tqdm(range(0, len(CTs) + 1), total=len(CTs) + 1):  # j runs through all the CT c
         if j == 0:
             Start = TimeGaps[0]
