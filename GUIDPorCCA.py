@@ -1803,11 +1803,11 @@ class Ui_MainWindow(object):
                 detector.detect_click_clips_folder(ThisFolderSave, blocksize=blocksize, zip_mode=zip_mode)
         else:
             detector.detect_click_clips_folder(MainFolder, blocksize=blocksize, zip_mode=zip_mode)
-        self.root_browse_button_det.mainloop(0)
+
 
     def CancelDetector(self):
         self.MenuDetSetFig.close()
-        self.root_browse_button_det.mainloop(0)
+
 
     def OpenCTMenu(self):
         self.OpenCTFig.setGeometry(350, 350, 380, 210)
