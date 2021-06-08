@@ -71,18 +71,17 @@ def ExtractPatterns(myCP, myFs, lat, long):
     LongCTs = DiffTimeGaps[DiffTimeGaps > 1000.0].index
 
     if len(LongCTs) > 0:
+        TimeGapsAdd = pd.Series()
         for m in range(0, len(LongCTs)):
-            Length = int(DiffTimeGaps[LongCTs[m]])
-            CTsInside = math.floor(Length / 1000) + 1  # integer less than
-            # Add Positions to TimeGaps
+            LongLength = int(DiffTimeGaps[LongCTs[m]])  # Original number of clicks
+            NNewCT = math.floor(LongLength / 1000) + 1  # Number of divisions
+            NewLength = int(LongLength / NNewCT)  # New length of each
             PosInCP = int(TimeGaps[LongCTs[m] - 1])
-            NextPos = int(TimeGaps[LongCTs[m]])
-            NewPos = np.linspace(start=PosInCP, stop=NextPos, num=CTsInside + 2).astype(int)
-            NewPos = pd.Series(NewPos)
-            TimeGaps = TimeGaps.append(NewPos, ignore_index=True)
-            TimeGaps = TimeGaps.unique()
-            TimeGaps = pd.Series(TimeGaps)
-            TimeGaps = TimeGaps.sort_values()
+            for i in np.arange(1, NNewCT):
+                TimeGapsAdd.loc[i] = PosInCP + i * NewLength + 1
+
+        TimeGaps = TimeGaps.append(TimeGapsAdd)
+        TimeGaps = TimeGaps.sort_values()
 
         TimeGaps.reset_index(inplace=True, drop=True)
         DiffTimeGaps = TimeGaps.diff()
