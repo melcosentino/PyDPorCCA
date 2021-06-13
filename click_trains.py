@@ -1,12 +1,41 @@
 import math
 import warnings
 
-import numpy as np
 import pandas as pd
+import numpy as np
 from tqdm import tqdm
 
 import isoutlier
 import sunrise
+
+
+def ct_steps(time_gaps, ct_long, time_gap_diff, old_time_gaps, cp):
+    while len(ct_long) > 0:
+        for m in range(0, len(ct_long)):
+            print(m)
+            length_ct = time_gap_diff[ct_long[m]].astype(int)  # Original number of clicks
+            start = old_time_gaps[ct_long[m] - 1].astype(int)  # Location of the beginning of the click train
+            stop = start + length_ct - 1  # Location of the last click in the click train
+            long_ct = cp[start:stop]  # Click train to split
+            values = long_ct.sort_values('ICI', ascending=False).head(int(long_ct.shape[0] * .01)).copy()
+            values.reset_index(inplace=True, drop=True)
+            if len(values) > 0:
+                th = int(values.ICI.min())
+                new_pos = long_ct.loc[(cp['ICI'] > th) | (long_ct['ICI'] < 0.0)].index.to_series()  # Split positions
+                new_pos_series = pd.Series(new_pos)
+                time_gaps = time_gaps.append(new_pos_series)
+        time_gaps = time_gaps.sort_values()
+        time_gaps = time_gaps.unique()
+        time_gaps = pd.Series(time_gaps)
+        time_gaps.reset_index(inplace=True, drop=True)
+        new_time_gap_diff = time_gaps.diff()
+        new_time_gap_diff.reset_index(inplace=True, drop=True)
+        ct_long = new_time_gap_diff[new_time_gap_diff > 1000].index
+        old_time_gaps = time_gaps.copy()
+        time_gap_diff = new_time_gap_diff.copy()
+
+    click_trains = new_time_gap_diff[new_time_gap_diff > 9].index
+    return click_trains, time_gaps
 
 
 def ExtractPatterns(myCP, myFs, lat, long):
@@ -71,25 +100,11 @@ def ExtractPatterns(myCP, myFs, lat, long):
     LongCTs = DiffTimeGaps[DiffTimeGaps > 1000.0].index
 
     if len(LongCTs) > 0:
-        TimeGapsAdd = pd.Series()
-        for m in range(0, len(LongCTs)):
-            LongLength = int(DiffTimeGaps[LongCTs[m]])  # Original number of clicks
-            NNewCT = math.floor(LongLength / 1000) + 1  # Number of divisions
-            NewLength = int(LongLength / NNewCT)  # New length of each
-            PosInCP = int(TimeGaps[LongCTs[m] - 1])
-            for i in np.arange(1, NNewCT):
-                TimeGapsAdd.loc[i] = PosInCP + i * NewLength + 1
-
-        TimeGaps = TimeGaps.append(TimeGapsAdd)
-        TimeGaps = TimeGaps.sort_values()
-
-        TimeGaps.reset_index(inplace=True, drop=True)
-        DiffTimeGaps = TimeGaps.diff()
-        CTs = DiffTimeGaps[DiffTimeGaps > 9].index
+        new_time_gaps = TimeGaps.copy()
+        CTs, TimeGaps = ct_steps(new_time_gaps, LongCTs, DiffTimeGaps, TimeGaps, myCP)
     else:
         CTs = DiffTimeGaps[DiffTimeGaps > 9].index
-    print(TimeGaps)
-    print(CTs)
+
     for j in tqdm(range(0, len(CTs) + 1), total=len(CTs) + 1):  # j runs through all the CT c
         if j == 0:
             Start = TimeGaps[0]
@@ -112,7 +127,7 @@ def ExtractPatterns(myCP, myFs, lat, long):
         SortedCPS.sort()
         DiffSorted = pd.DataFrame(SortedCPS).diff()
         MaxDiffSorted = DiffSorted.max().values
-
+        print(MaxDiffSorted)
         if MaxDiffSorted <= 40:
             FinalCT = CT.copy()
         else:
