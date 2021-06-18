@@ -38,7 +38,7 @@ def ct_steps(time_gaps, ct_long, time_gap_diff, old_time_gaps, cp):
     return click_trains, time_gaps
 
 
-def ExtractPatterns(myCP, myFs, lat, long):
+def extract_patterns(myCP, myFs, lat, long):
     """
      THIS FUNCTION IS CURRENTLY UNDER DEVELOPMENT. THE MATLAB VERSION SHOULD BE USED INSTEAD
 
@@ -66,7 +66,7 @@ def ExtractPatterns(myCP, myFs, lat, long):
     """
     ColNames = ['CTNum', 'Date', 'DayNight', 'Length', 'CTType', 'Behav', 'Calf', 'Notes']
     myCTInfo = pd.DataFrame(data=None, columns=ColNames)
-    myCP = NewICI(myCP, myFs)
+    myCP = new_ici(myCP, myFs)
     # remove local min
     S1 = len(myCP)
     S2 = 1
@@ -77,12 +77,12 @@ def ExtractPatterns(myCP, myFs, lat, long):
             myCP[(myCP.amplitude.shift(1) > myCP.amplitude) & (myCP.amplitude.shift(-1) > myCP.amplitude) & (
                     myCP.AmpDiff < -6)].index)
         myCP.reset_index(inplace=True, drop=True)
-        myCP = NewICI(myCP, myFs)
+        myCP = new_ici(myCP, myFs)
         S2 = len(myCP)
     myCP["AmpDiff"] = myCP.amplitude.diff()
     myCP = myCP.drop(myCP[(myCP.CPS.diff() > 80.0)].index)
     myCP.reset_index(inplace=True, drop=True)
-    myCP = NewICI(myCP, myFs)
+    myCP = new_ici(myCP, myFs)
     myCP.reset_index(inplace=True, drop=True)
     ColNames = list(myCP.columns)
     Clicks = pd.DataFrame(data=None, columns=ColNames)
@@ -118,7 +118,7 @@ def ExtractPatterns(myCP, myFs, lat, long):
             End = TimeGaps[CTs[i]] - 1
         CT = myCP[Start:End]
         CT.reset_index(inplace=True, drop=True)
-        CT = NewICI(CT, myFs)
+        CT = new_ici(CT, myFs)
         CTNum = j + 1
         CT = CT.assign(CT=CTNum)
 
@@ -136,7 +136,7 @@ def ExtractPatterns(myCP, myFs, lat, long):
             HighCPS = CT.CPS > 100
             CT.drop(index=CT[HighCPS & Outlier].index)
             CT.reset_index(inplace=True, drop=True)
-            CT = NewICI(CT, myFs)
+            CT = new_ici(CT, myFs)
             SortedCPS = CT.CPS.values.copy()
             SortedCPS.sort()
             DiffSorted = pd.DataFrame(SortedCPS).diff()
@@ -168,7 +168,7 @@ def ExtractPatterns(myCP, myFs, lat, long):
                 Here.reset_index(inplace=True, drop=True)
                 if len(StartRow) < 2:
                     FinalCT = CT.copy()
-                    FinalCT = NewICI(FinalCT, myFs)
+                    FinalCT = new_ici(FinalCT, myFs)
                 else:  # go into the CT
                     RowN = StartRow[0]  # Low variability in CPS (in the next 4 clicks)
                     RowsToKeep = np.array(Here)
@@ -227,16 +227,16 @@ def ExtractPatterns(myCP, myFs, lat, long):
                     if len(RowsToKeep) > 0:
                         FinalCT = CT.iloc[RowsToKeep]
                         FinalCT.reset_index(inplace=True, drop=True)
-                        FinalCT = NewICI(FinalCT, myFs)
+                        FinalCT = new_ici(FinalCT, myFs)
                     else:
                         FinalCT = []
             else:
                 FinalCT = CT.copy()
-                FinalCT = NewICI(FinalCT, myFs)
+                FinalCT = new_ici(FinalCT, myFs)
 
         if len(FinalCT) > 1:
-            FinalCT = NewICI(FinalCT, myFs)
-            myCTInfo = CTInfoMaker(myCTInfo, FinalCT, lat, long)
+            FinalCT = new_ici(FinalCT, myFs)
+            myCTInfo = ct_info_maker(myCTInfo, FinalCT, lat, long)
             # Put result into a final file
             if j == 0:
                 Clicks = FinalCT.copy()
@@ -247,7 +247,7 @@ def ExtractPatterns(myCP, myFs, lat, long):
     return Clicks, myCTInfo, myCP
 
 
-def NewICI(myTable, fs):
+def new_ici(myTable, fs):
     """
         Calculates inter-click intervals (ICI) and repetition rates (clicks per second - CPS)
     :parameters:
@@ -266,9 +266,9 @@ def NewICI(myTable, fs):
     return myTable
 
 
-def CTInfoMaker(myCTInfo, myCTTemp, myLat, myLong):
+def ct_info_maker(myCTInfo, myCTTemp, myLat, myLong):
     """
-        CTInfoMaker: for each identified click train (myCTTemp), this function estimates a series of summary parameters
+        ct_info_maker: for each identified click train (myCTTemp), this function estimates a series of summary parameters
             and generates a table called CTInfo. These parameters are:
                 CTNum = click train number
                 datetime: date and time
@@ -311,7 +311,7 @@ def CTInfoMaker(myCTInfo, myCTTemp, myLat, myLong):
     else:
         DayNight = 'Night'
     # Type
-    Type = CTType(myCTTemp)
+    Type = ct_type(myCTTemp)
     if Type == 'Noise':
         Behav = '-'
     else:
@@ -321,7 +321,7 @@ def CTInfoMaker(myCTInfo, myCTTemp, myLat, myLong):
     return myCTInfo
 
 
-def CTType(CT):
+def ct_type(CT):
     """
         Estimates a series of parameters for each click train and classify them into either of three categories:
             NBHF: narrow-band, high-frequency click trains, with a high probability of being produced by harbour

@@ -1,30 +1,38 @@
  #D-PorCCA
-  D-PorCCA is a standalone desktop application aiming at providing researchers with summary data to monitor harbour
-   porpoises from continuous recordings.  
+  D-PorCCA is a standalone desktop application with the goal of providing researchers with summary data for the 
+   monitoring of harbour porpoises.  
    D = Detector
    PorCC = Porpoise Click Classifier
    A = Application
 
 #### Detector
-The Detector is an adaptation of PAMGuard's Click Detector Module (translated by Clea Parcerisas) that uses a trigger filter selecting clips that can 
-potentially be porpoise clicks (i.e., high energy content between 100 and 150 kHz)
+D-PorCCA includes a detector for impulsive sounds, regularly called "click detector" and it is an adaptation of 
+PAMGuard's Click Detector Module (translated by Clea Parcerisas), which uses a trigger filter to select potential
+porpoise clicks (i.e., high energy content between 100 and 150 kHz)
 
 #### PorCC: 
+The porpoise click classifier (PorCC) in D-PorCCA was developed by Cosentino et al and separates clicks into either of 
+three categories: high-frequency noise, high-quality porpoise click, low-quality porpoise click. More information can be 
+found here:
 > Cosentino, M., Guarato, F., Tougaard, J., Nairn, D., Jackson, J. C., & Windmill, J. F. C. (2019). 
 > Porpoise click classifier (PorCC): A high-accuracy classifier to study harbour porpoises (*Phocoena phocoena*) in the wild . 
 > The Journal of the Acoustical Society of America, 145(6), 3427–3434. https://doi.org/10.1121/1.5110908
 
-In DPorCCA, PorCC is implemented via de package pyporcc, developed by Clea Parcerisas
+PorCC is implemented via the package pyporcc, developed by Clea Parcerisas.
 
 ## Note
 DPorCCA is still under development
 
 
- ## INFORMATION ABOUT PYTHON FILES
-- click_trains.py: a series of functions to identify and classify click trains
-- isoutlier.py: identifies outliers in the data - translated from Matlab by Clea Parcerisas
-- sunrise.py: estimates sunset and sunrise times for a given location in a given day (GMT) from latitude and longitude
+ ## FILES INFORMATION 
+- click_trains.py: functions to identify, clean and classify click trains
+- isoutlier.py: identifies outliers in the data - function translated from Matlab by Clea Parcerisas
+- sunrise.py: estimates sunset and sunrise times for a given location on a given day (GMT) from latitude and longitude
 - create_settings_file.py: generates setting files when using the Detector and PorCC.
+- GUIDPorCCA.py: main script where the app is created
+
+- requirements.txt: list of packages needed for the proper functioning of D-PorCCA. During installation, the packages 
+listed in this file are installed automatically.
 
 ### Examples:
 
@@ -67,7 +75,7 @@ Fields:
 - *Length*: number of clicks  
 - *CTType*: click train type 
 - *Behav*: behaviour of the animal  
-- *Calf*: 
+- *Calf*: *NOT IMPLEMENTED YET*
 - *Notes*: 
 
 

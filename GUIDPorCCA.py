@@ -901,10 +901,10 @@ class Ui_MainWindow(object):
         item.setText(_translate("MainWindow", "Calf"))
         # self.Update = UpdateCT.UpdatePlots
 
-    def MetricsOK(self):
+    def metrics(self):
         pass
 
-    def DisplayMetrics(self):
+    def display_metrics(self):
         # clear axis (not possible)
         # What to display
         DaysToPlot = self.SelectadateDropDown.getText()
@@ -964,7 +964,7 @@ class Ui_MainWindow(object):
             # end
             self.CPMAxesTot.setGraphYLabel('Positive minutes')
 
-    def UpdateCT(self, NumCT, Cp, myCTInfo):
+    def update_ct(self, NumCT, Cp, myCTInfo):
         """
             Displays the click train number 'NumCT'
 
@@ -980,7 +980,7 @@ class Ui_MainWindow(object):
         if len(CTTemp) > 9:
             fs = 1 / (CTTemp.iloc[3]['ICI'] / (
                     1000 * (CTTemp.iloc[3]["start_sample"] - CTTemp.iloc[2]["start_sample"])))
-            CTTemp = click_trains.NewICI(CTTemp, fs)
+            CTTemp = click_trains.new_ici(CTTemp, fs)
             CTTemp.loc[:, 'SumMs'] = int(0)
             for i in range(1, len(CTTemp)):
                 CTTemp.SumMs[i] = int(CTTemp.SumMs[i - 1]) + int(CTTemp.ICI[i])
@@ -1074,7 +1074,7 @@ class Ui_MainWindow(object):
             self.FreqAxesCT.clear()
             RowCT = CTInfo[CTInfo.CTNum == NumCT].index[0]
             NumCT = int(CTInfo.CTNum[RowCT - 1])
-            self.UpdateCT(NumCT, CP, CTInfo)
+            self.update_ct(NumCT, CP, CTInfo)
 
     def CTForwCB(self):
         """
@@ -1090,7 +1090,7 @@ class Ui_MainWindow(object):
             self.FreqAxesCT.clear()
             RowCT = CTInfo[CTInfo.CTNum == NumCT].index[0]
             NumCT = int(CTInfo.CTNum[RowCT + 1])
-            self.UpdateCT(NumCT, CP, CTInfo)
+            self.update_ct(NumCT, CP, CTInfo)
 
     def NotesCT(self):
         """
@@ -1906,7 +1906,7 @@ class Ui_MainWindow(object):
 
     def IdentifyCT(self):
         """
-            Prepares the data to locate and classify click trains, which is done via ExtractPatterns() and CTType()
+            Prepares the data to locate and classify click trains, which is done via extract_patterns() and ct_type()
         """
         global CP  # sset, srise
         self.NewCTFig.close()
@@ -1974,7 +1974,7 @@ class Ui_MainWindow(object):
 
 
                 fs = 576000  # I will need a settings file
-                Clicks, thisCTInfo, CP = click_trains.ExtractPatterns(CP, fs, latitude, longitude)
+                Clicks, thisCTInfo, CP = click_trains.extract_patterns(CP, fs, latitude, longitude)
                 if myFolders == MainFolder:
                     CTInfoFileName = os.path.join(MainFolder, 'CTInfo.csv')
                     ClicksFileName = os.path.join(MainFolder, 'Clicks.csv')
@@ -2017,10 +2017,10 @@ class Ui_MainWindow(object):
         CTInfo = CTInfo[CTInfo.Length > 9]
         CTInfo.reset_index(inplace=True, drop=True)
         NumCT = int(CTInfo.CTNum.iloc[0])
-        self.UpdateCT(NumCT, CP, CTInfo)
+        self.update_ct(NumCT, CP, CTInfo)
         self.root_open_ct_browse_b.mainloop(0)
 
-    def SaveUpdates(self):
+    def save_udpates(self):
         FullName = os.path.join(self.SelectedFolderCT, 'CTInfo.csv')
         CTInfo.to_csv(FullName)
 
