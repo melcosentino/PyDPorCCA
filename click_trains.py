@@ -40,8 +40,6 @@ def ct_steps(time_gaps, ct_long, time_gap_diff, old_time_gaps, cp):
 
 def extract_patterns(myCP, myFs, lat, long):
     """
-     THIS FUNCTION IS CURRENTLY UNDER DEVELOPMENT. THE MATLAB VERSION SHOULD BE USED INSTEAD
-
      Locates acoustic events and identifies underlying patterns by keeping consecutive clicks with regular variations
      of inter-click intervals (or repetition rates) and amplitude.
 

@@ -498,7 +498,7 @@ class Ui_MainWindow(object):
         self.SaveupdatesButton.setDefault(False)
         self.SaveupdatesButton.setFlat(False)
         self.SaveupdatesButton.setObjectName("SaveupdatesButton")
-        self.SaveupdatesButton.clicked.connect(self.SaveUpdates)
+        self.SaveupdatesButton.clicked.connect(self.save_updates)
 
         # AXES AREA
         pg.setConfigOption('background', 'w')
@@ -742,7 +742,7 @@ class Ui_MainWindow(object):
         # Update and clear buttons
         self.DisplayMetricsButton.setGeometry(QtCore.QRect(796, 8, 88, 106))
         self.DisplayMetricsButton.setObjectName("DisplayMetricsButton")
-        self.DisplayMetricsButton.clicked.connect(self.DisplayMetrics)
+        self.DisplayMetricsButton.clicked.connect(self.display_metrics)
         self.ClearButton.setGeometry(QtCore.QRect(890, 8, 100, 106))
         self.ClearButton.setObjectName("ClearButton")
         self.MainTab.addTab(self.MetricsDisplayTab, "")
@@ -2020,7 +2020,7 @@ class Ui_MainWindow(object):
         self.update_ct(NumCT, CP, CTInfo)
         self.root_open_ct_browse_b.mainloop(0)
 
-    def save_udpates(self):
+    def save_updates(self):
         FullName = os.path.join(self.SelectedFolderCT, 'CTInfo.csv')
         CTInfo.to_csv(FullName)
 
