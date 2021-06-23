@@ -102,146 +102,148 @@ def extract_patterns(myCP, myFs, lat, long):
         CTs, TimeGaps = ct_steps(new_time_gaps, LongCTs, DiffTimeGaps, TimeGaps, myCP)
     else:
         CTs = DiffTimeGaps[DiffTimeGaps > 9].index
-
-    for j in tqdm(range(0, len(CTs) + 1), total=len(CTs) + 1):  # j runs through all the CT c
-        if j == 0:
-            Start = TimeGaps[0]
-            End = TimeGaps[CTs[0]] - 1
-        elif j == (len(CTs) + 1):
-            Start = TimeGaps[CTs[-1]]
-            End = len(myCP)
-        else:
-            i = j - 1
-            Start = TimeGaps[CTs[i] - 1]
-            End = TimeGaps[CTs[i]] - 1
-        CT = myCP[Start:End]
-        CT.reset_index(inplace=True, drop=True)
-        CT = new_ici(CT, myFs)
-        CTNum = j + 1
-        CT = CT.assign(CT=CTNum)
-
-        # A large difference indicates echoes
-        SortedCPS = CT.CPS.values.copy()
-        SortedCPS.sort()
-        DiffSorted = pd.DataFrame(SortedCPS).diff()
-        MaxDiffSorted = DiffSorted.max().values
-        print(MaxDiffSorted)
-        if MaxDiffSorted <= 40:
-            FinalCT = CT.copy()
-        else:
-
-            Outlier = isoutlier.isoutliers(CT[['CPS']])
-            HighCPS = CT.CPS > 100
-            CT.drop(index=CT[HighCPS & Outlier].index)
+    if len(CTs) > 0:
+        for j in tqdm(range(0, len(CTs) + 1), total=len(CTs) + 1):  # j runs through all the CT c
+            if j == 0:
+                Start = TimeGaps[0]
+                End = TimeGaps[CTs[0]] - 1
+            elif j == (len(CTs) + 1):
+                Start = TimeGaps[CTs[-1]]
+                End = len(myCP)
+            else:
+                i = j - 1
+                Start = TimeGaps[CTs[i] - 1]
+                End = TimeGaps[CTs[i]] - 1
+            CT = myCP[Start:End]
             CT.reset_index(inplace=True, drop=True)
             CT = new_ici(CT, myFs)
+            CTNum = j + 1
+            CT = CT.assign(CT=CTNum)
+
+            # A large difference indicates echoes
             SortedCPS = CT.CPS.values.copy()
             SortedCPS.sort()
             DiffSorted = pd.DataFrame(SortedCPS).diff()
             MaxDiffSorted = DiffSorted.max().values
-
-            if MaxDiffSorted <= 50:
+            print(MaxDiffSorted)
+            if MaxDiffSorted <= 40:
                 FinalCT = CT.copy()
-            elif len(CT) > 20:
-                # Finding stable areas
-                CPSDiff = CT.CPS.diff()
-                PercChangeS = (CPSDiff / CT.CPS[::-1]) * 100
-                PercChangeS = abs(PercChangeS[1::])
-                window_size = 3
-                i = 0
-                PercCPSDiff = []
-                # moving average
-                while i < len(PercChangeS) - window_size + 1:
-                    this_window = PercChangeS[i: i + window_size]
-                    # get current window
-                    window_average = sum(this_window) / window_size
-                    PercCPSDiff.append(window_average)
-                    i += 1
-                PercCPSDiff = pd.DataFrame(PercCPSDiff)
-                PercCPSDiff.reset_index(inplace=True, drop=True)
-                StartRow = PercCPSDiff[PercCPSDiff[0] < 20.0].index.to_series()
-                StartRow.reset_index(inplace=True, drop=True)
-                DiffStartRow = StartRow.diff()
-                Here = DiffStartRow[DiffStartRow == 1].index.to_series()
-                Here.reset_index(inplace=True, drop=True)
-                if len(StartRow) < 2:
+            else:
+
+                Outlier = isoutlier.isoutliers(CT[['CPS']])
+                HighCPS = CT.CPS > 100
+                CT.drop(index=CT[HighCPS & Outlier].index)
+                CT.reset_index(inplace=True, drop=True)
+                CT = new_ici(CT, myFs)
+                SortedCPS = CT.CPS.values.copy()
+                SortedCPS.sort()
+                DiffSorted = pd.DataFrame(SortedCPS).diff()
+                MaxDiffSorted = DiffSorted.max().values
+
+                if MaxDiffSorted <= 50:
+                    FinalCT = CT.copy()
+                elif len(CT) > 20:
+                    # Finding stable areas
+                    CPSDiff = CT.CPS.diff()
+                    PercChangeS = (CPSDiff / CT.CPS[::-1]) * 100
+                    PercChangeS = abs(PercChangeS[1::])
+                    window_size = 3
+                    i = 0
+                    PercCPSDiff = []
+                    # moving average
+                    while i < len(PercChangeS) - window_size + 1:
+                        this_window = PercChangeS[i: i + window_size]
+                        # get current window
+                        window_average = sum(this_window) / window_size
+                        PercCPSDiff.append(window_average)
+                        i += 1
+                    PercCPSDiff = pd.DataFrame(PercCPSDiff)
+                    PercCPSDiff.reset_index(inplace=True, drop=True)
+                    StartRow = PercCPSDiff[PercCPSDiff[0] < 20.0].index.to_series()
+                    StartRow.reset_index(inplace=True, drop=True)
+                    DiffStartRow = StartRow.diff()
+                    Here = DiffStartRow[DiffStartRow == 1].index.to_series()
+                    Here.reset_index(inplace=True, drop=True)
+                    if len(StartRow) < 2:
+                        FinalCT = CT.copy()
+                        FinalCT = new_ici(FinalCT, myFs)
+                    else:  # go into the CT
+                        RowN = StartRow[0]  # Low variability in CPS (in the next 4 clicks)
+                        RowsToKeep = np.array(Here)
+                        FirstRowN = RowN
+
+                        # Look backwards
+                        while RowN > 5:
+                            ClickCPS = CT.CPS.iloc[RowN]
+                            ClickAmp = CT.amplitude.iloc[RowN]
+                            Clickstart_sample = CT.start_sample.iloc[RowN]
+                            ICIs = abs(Clickstart_sample - CT.start_sample[RowN - 5:RowN - 1]) / (myFs / 1000)
+                            CPSs = 1000 / ICIs
+                            Amps = CT.amplitude[RowN - 5:RowN - 1]
+                            Amps = abs(ClickAmp - Amps)
+                            DiffCPSs = abs(ClickCPS - CPSs)
+                            DiffCPSs = pd.DataFrame(DiffCPSs)
+                            MinVal = DiffCPSs.start_sample.min()
+                            ixCPS = DiffCPSs[DiffCPSs.start_sample == MinVal].index
+                            if Amps[ixCPS[0]] < 5:
+                                DiffCPSs[ixCPS[0]] = 1000  # high arbitrary number
+                                MinVal = DiffCPSs.start_sample.min()
+                                ixCPS = DiffCPSs[DiffCPSs.start_sample == MinVal].index
+                                RowN = RowN - ixCPS[0]
+                            else:
+                                RowN = RowN - ixCPS[0]
+
+                            RowsToKeep = np.append(RowsToKeep, RowN)
+                        # Look forwards
+                        RowN = FirstRowN
+                        while RowN < len(CT) - 10:
+                            ClickCPS = CT.CPS.iloc[RowN]
+                            ClickAmp = CT.amplitude.iloc[RowN]
+                            Clickstart_sample = CT.start_sample.iloc[RowN]
+                            ICIs = abs(CT.start_sample[RowN + 1:RowN + 9] - Clickstart_sample) / (myFs / 1000)
+                            CPSs = 1000 / ICIs
+                            Amps = CT.amplitude[RowN + 1:RowN + 9]
+                            Amps = abs(Amps - ClickAmp)
+                            DiffCPSs = abs(ClickCPS - CPSs)
+                            DiffCPSs = pd.DataFrame(DiffCPSs)
+                            MinVal = DiffCPSs.start_sample.min()
+                            ixCPS = DiffCPSs[DiffCPSs.start_sample == MinVal].index
+                            if Amps[ixCPS[0]] < 6:
+                                DiffCPSs[ixCPS[0]] = 1000  # high arbitrary number
+                                MinVal = DiffCPSs.start_sample.min()
+                                ixCPS = DiffCPSs[DiffCPSs.start_sample == MinVal].index
+                                RowN = RowN + ixCPS[0]
+                            else:
+                                RowN = RowN + ixCPS[0]
+
+                            RowsToKeep = np.append(RowsToKeep, RowN)
+
+                        RowsToKeep = np.append(RowsToKeep, RowN)
+                        RowsToKeep = np.unique(RowsToKeep)
+                        RowsToKeep = np.delete(RowsToKeep, np.where(RowsToKeep <= 0))
+                        RowsToKeep = np.delete(RowsToKeep, np.where(RowsToKeep > len(CT) - 1))
+                        if len(RowsToKeep) > 0:
+                            FinalCT = CT.iloc[RowsToKeep]
+                            FinalCT.reset_index(inplace=True, drop=True)
+                            FinalCT = new_ici(FinalCT, myFs)
+                        else:
+                            FinalCT = []
+                else:
                     FinalCT = CT.copy()
                     FinalCT = new_ici(FinalCT, myFs)
-                else:  # go into the CT
-                    RowN = StartRow[0]  # Low variability in CPS (in the next 4 clicks)
-                    RowsToKeep = np.array(Here)
-                    FirstRowN = RowN
 
-                    # Look backwards
-                    while RowN > 5:
-                        ClickCPS = CT.CPS.iloc[RowN]
-                        ClickAmp = CT.amplitude.iloc[RowN]
-                        Clickstart_sample = CT.start_sample.iloc[RowN]
-                        ICIs = abs(Clickstart_sample - CT.start_sample[RowN - 5:RowN - 1]) / (myFs / 1000)
-                        CPSs = 1000 / ICIs
-                        Amps = CT.amplitude[RowN - 5:RowN - 1]
-                        Amps = abs(ClickAmp - Amps)
-                        DiffCPSs = abs(ClickCPS - CPSs)
-                        DiffCPSs = pd.DataFrame(DiffCPSs)
-                        MinVal = DiffCPSs.start_sample.min()
-                        ixCPS = DiffCPSs[DiffCPSs.start_sample == MinVal].index
-                        if Amps[ixCPS[0]] < 5:
-                            DiffCPSs[ixCPS[0]] = 1000  # high arbitrary number
-                            MinVal = DiffCPSs.start_sample.min()
-                            ixCPS = DiffCPSs[DiffCPSs.start_sample == MinVal].index
-                            RowN = RowN - ixCPS[0]
-                        else:
-                            RowN = RowN - ixCPS[0]
-
-                        RowsToKeep = np.append(RowsToKeep, RowN)
-                    # Look forwards
-                    RowN = FirstRowN
-                    while RowN < len(CT) - 10:
-                        ClickCPS = CT.CPS.iloc[RowN]
-                        ClickAmp = CT.amplitude.iloc[RowN]
-                        Clickstart_sample = CT.start_sample.iloc[RowN]
-                        ICIs = abs(CT.start_sample[RowN + 1:RowN + 9] - Clickstart_sample) / (myFs / 1000)
-                        CPSs = 1000 / ICIs
-                        Amps = CT.amplitude[RowN + 1:RowN + 9]
-                        Amps = abs(Amps - ClickAmp)
-                        DiffCPSs = abs(ClickCPS - CPSs)
-                        DiffCPSs = pd.DataFrame(DiffCPSs)
-                        MinVal = DiffCPSs.start_sample.min()
-                        ixCPS = DiffCPSs[DiffCPSs.start_sample == MinVal].index
-                        if Amps[ixCPS[0]] < 6:
-                            DiffCPSs[ixCPS[0]] = 1000  # high arbitrary number
-                            MinVal = DiffCPSs.start_sample.min()
-                            ixCPS = DiffCPSs[DiffCPSs.start_sample == MinVal].index
-                            RowN = RowN + ixCPS[0]
-                        else:
-                            RowN = RowN + ixCPS[0]
-
-                        RowsToKeep = np.append(RowsToKeep, RowN)
-
-                    RowsToKeep = np.append(RowsToKeep, RowN)
-                    RowsToKeep = np.unique(RowsToKeep)
-                    RowsToKeep = np.delete(RowsToKeep, np.where(RowsToKeep <= 0))
-                    RowsToKeep = np.delete(RowsToKeep, np.where(RowsToKeep > len(CT) - 1))
-                    if len(RowsToKeep) > 0:
-                        FinalCT = CT.iloc[RowsToKeep]
-                        FinalCT.reset_index(inplace=True, drop=True)
-                        FinalCT = new_ici(FinalCT, myFs)
-                    else:
-                        FinalCT = []
-            else:
-                FinalCT = CT.copy()
+            if len(FinalCT) > 1:
                 FinalCT = new_ici(FinalCT, myFs)
-
-        if len(FinalCT) > 1:
-            FinalCT = new_ici(FinalCT, myFs)
-            myCTInfo = ct_info_maker(myCTInfo, FinalCT, lat, long)
-            # Put result into a final file
-            if j == 0:
-                Clicks = FinalCT.copy()
+                myCTInfo = ct_info_maker(myCTInfo, FinalCT, lat, long)
+                # Put result into a final file
+                if j == 0:
+                    Clicks = FinalCT.copy()
+                else:
+                    Clicks = Clicks.append(FinalCT.copy())
             else:
-                Clicks = Clicks.append(FinalCT.copy())
-        else:
-            warnings.warn("This click train was empty, the number will be skipped")
+                warnings.warn("This click train was empty, the number will be skipped")
+    else:
+        warnings.warn("There are no click trains in this file.")
     return Clicks, myCTInfo, myCP
 
 
