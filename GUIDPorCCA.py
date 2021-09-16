@@ -978,9 +978,7 @@ class Ui_MainWindow(object):
         if NumCT != 1:
             CTTemp.reset_index(inplace=True, drop=True)
         if len(CTTemp) > 9:
-            fs = 1 / (CTTemp.iloc[3]['ICI'] / (
-                    1000 * (CTTemp.iloc[3]["start_sample"] - CTTemp.iloc[2]["start_sample"])))
-            CTTemp = click_trains.new_ici(CTTemp, fs)
+            CTTemp = click_trains.new_ici(CTTemp)
             CTTemp.loc[:, 'SumMs'] = int(0)
             for i in range(1, len(CTTemp)):
                 CTTemp.SumMs[i] = int(CTTemp.SumMs[i - 1]) + int(CTTemp.ICI[i])
@@ -1972,9 +1970,8 @@ class Ui_MainWindow(object):
                         CP.to_csv(CPFileName, index=False)
                         CP = pd.read_csv(CPFileName, sep=',')
 
-
-                fs = 576000  # I will need a settings file
-                Clicks, thisCTInfo, CP = click_trains.extract_patterns(CP, fs, latitude, longitude)
+                Clicks, thisCTInfo, CP = click_trains.extract_patterns(CP, latitude, longitude)
+                # TODO FREQUENCY IS HARDCODED!
                 if myFolders == MainFolder:
                     CTInfoFileName = os.path.join(MainFolder, 'CTInfo.csv')
                     ClicksFileName = os.path.join(MainFolder, 'Clicks.csv')

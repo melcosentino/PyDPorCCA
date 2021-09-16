@@ -12,7 +12,6 @@ import sunrise
 def ct_steps(time_gaps, ct_long, time_gap_diff, old_time_gaps, cp):
     while len(ct_long) > 0:
         for m in range(0, len(ct_long)):
-            print(m)
             length_ct = time_gap_diff[ct_long[m]].astype(int)  # Original number of clicks
             start = old_time_gaps[ct_long[m] - 1].astype(int)  # Location of the beginning of the click train
             stop = start + length_ct - 1  # Location of the last click in the click train
@@ -38,7 +37,7 @@ def ct_steps(time_gaps, ct_long, time_gap_diff, old_time_gaps, cp):
     return click_trains, time_gaps
 
 
-def extract_patterns(myCP, myFs, lat, long):
+def extract_patterns(myCP, lat, long):
     """
      Locates acoustic events and identifies underlying patterns by keeping consecutive clicks with regular variations
      of inter-click intervals (or repetition rates) and amplitude.
@@ -46,7 +45,6 @@ def extract_patterns(myCP, myFs, lat, long):
      Parameters:
         myCP = table containing parameters of each click identified in the data, which were already classified as either
           high- or low-quality porpoise clicks.
-        myFs = sampling frequency
         lat = latitude of the location of the device. Used to estimate whether the acoustic event occurred during the
           day or the night
         long = longitude of the location of the device. Used to estimate whether the acoustic event occurred during the
@@ -64,7 +62,8 @@ def extract_patterns(myCP, myFs, lat, long):
     """
     ColNames = ['CTNum', 'Date', 'DayNight', 'Length', 'CTType', 'Behav', 'Calf', 'Notes']
     myCTInfo = pd.DataFrame(data=None, columns=ColNames)
-    myCP = new_ici(myCP, myFs)
+    myCP.datetime = pd.to_datetime(myCP.datetime)
+    myCP = new_ici(myCP)
     # remove local min
     S1 = len(myCP)
     S2 = 1
@@ -75,12 +74,12 @@ def extract_patterns(myCP, myFs, lat, long):
             myCP[(myCP.amplitude.shift(1) > myCP.amplitude) & (myCP.amplitude.shift(-1) > myCP.amplitude) & (
                     myCP.AmpDiff < -6)].index)
         myCP.reset_index(inplace=True, drop=True)
-        myCP = new_ici(myCP, myFs)
+        myCP = new_ici(myCP)
         S2 = len(myCP)
     myCP["AmpDiff"] = myCP.amplitude.diff()
     myCP = myCP.drop(myCP[(myCP.CPS.diff() > 80.0)].index)
     myCP.reset_index(inplace=True, drop=True)
-    myCP = new_ici(myCP, myFs)
+    myCP = new_ici(myCP)
     myCP.reset_index(inplace=True, drop=True)
     ColNames = list(myCP.columns)
     Clicks = pd.DataFrame(data=None, columns=ColNames)
@@ -103,11 +102,8 @@ def extract_patterns(myCP, myFs, lat, long):
     else:
         CTs = DiffTimeGaps[DiffTimeGaps > 9].index
     if len(CTs) > 0:
-        for j in tqdm(range(0, len(CTs) + 1), total=len(CTs) + 1):  # j runs through all the CT c
-            if j == 0:
-                Start = TimeGaps[0]
-                End = TimeGaps[CTs[0]] - 1
-            elif j == (len(CTs) + 1):
+        for j in tqdm(range(1, len(CTs) + 1), total=len(CTs)):  # j runs through all the CT c
+            if j == (len(CTs) + 1):
                 Start = TimeGaps[CTs[-1]]
                 End = len(myCP)
             else:
@@ -116,7 +112,7 @@ def extract_patterns(myCP, myFs, lat, long):
                 End = TimeGaps[CTs[i]] - 1
             CT = myCP[Start:End]
             CT.reset_index(inplace=True, drop=True)
-            CT = new_ici(CT, myFs)
+            CT = new_ici(CT)
             CTNum = j + 1
             CT = CT.assign(CT=CTNum)
 
@@ -125,16 +121,14 @@ def extract_patterns(myCP, myFs, lat, long):
             SortedCPS.sort()
             DiffSorted = pd.DataFrame(SortedCPS).diff()
             MaxDiffSorted = DiffSorted.max().values
-            print(MaxDiffSorted)
             if MaxDiffSorted <= 40:
                 FinalCT = CT.copy()
             else:
-
                 Outlier = isoutlier.isoutliers(CT[['CPS']])
                 HighCPS = CT.CPS > 100
                 CT.drop(index=CT[HighCPS & Outlier].index)
                 CT.reset_index(inplace=True, drop=True)
-                CT = new_ici(CT, myFs)
+                CT = new_ici(CT)
                 SortedCPS = CT.CPS.values.copy()
                 SortedCPS.sort()
                 DiffSorted = pd.DataFrame(SortedCPS).diff()
@@ -166,7 +160,7 @@ def extract_patterns(myCP, myFs, lat, long):
                     Here.reset_index(inplace=True, drop=True)
                     if len(StartRow) < 2:
                         FinalCT = CT.copy()
-                        FinalCT = new_ici(FinalCT, myFs)
+                        FinalCT = new_ici(FinalCT)
                     else:  # go into the CT
                         RowN = StartRow[0]  # Low variability in CPS (in the next 4 clicks)
                         RowsToKeep = np.array(Here)
@@ -176,22 +170,18 @@ def extract_patterns(myCP, myFs, lat, long):
                         while RowN > 5:
                             ClickCPS = CT.CPS.iloc[RowN]
                             ClickAmp = CT.amplitude.iloc[RowN]
-                            Clickstart_sample = CT.start_sample.iloc[RowN]
-                            ICIs = abs(Clickstart_sample - CT.start_sample[RowN - 5:RowN - 1]) / (myFs / 1000)
+                            Clickstart_datetime = CT.datetime.iloc[RowN]
+                            ICIs = abs((Clickstart_datetime - CT.datetime[RowN - 5:RowN - 1]).dt.microseconds / 1000)
                             CPSs = 1000 / ICIs
-                            Amps = CT.amplitude[RowN - 5:RowN - 1]
-                            Amps = abs(ClickAmp - Amps)
+                            Amps = abs(ClickAmp - CT.amplitude[RowN - 5:RowN - 1])
                             DiffCPSs = abs(ClickCPS - CPSs)
-                            DiffCPSs = pd.DataFrame(DiffCPSs)
-                            MinVal = DiffCPSs.start_sample.min()
-                            ixCPS = DiffCPSs[DiffCPSs.start_sample == MinVal].index
-                            if Amps[ixCPS[0]] < 5:
-                                DiffCPSs[ixCPS[0]] = 1000  # high arbitrary number
-                                MinVal = DiffCPSs.start_sample.min()
-                                ixCPS = DiffCPSs[DiffCPSs.start_sample == MinVal].index
-                                RowN = RowN - ixCPS[0]
+                            ixCPS = DiffCPSs.idxmin()
+                            if Amps[ixCPS] < 5:
+                                DiffCPSs[ixCPS] = 1000  # high arbitrary number
+                                ixCPS = DiffCPSs.idxmin()
+                                RowN = RowN - ixCPS
                             else:
-                                RowN = RowN - ixCPS[0]
+                                RowN = RowN - ixCPS
 
                             RowsToKeep = np.append(RowsToKeep, RowN)
                         # Look forwards
@@ -199,22 +189,18 @@ def extract_patterns(myCP, myFs, lat, long):
                         while RowN < len(CT) - 10:
                             ClickCPS = CT.CPS.iloc[RowN]
                             ClickAmp = CT.amplitude.iloc[RowN]
-                            Clickstart_sample = CT.start_sample.iloc[RowN]
-                            ICIs = abs(CT.start_sample[RowN + 1:RowN + 9] - Clickstart_sample) / (myFs / 1000)
+                            Clickstart_datetime = CT.datetime.iloc[RowN]
+                            ICIs = abs((CT.datetime[RowN + 1:RowN + 9] - Clickstart_datetime).dt.microseconds / 1000)
                             CPSs = 1000 / ICIs
-                            Amps = CT.amplitude[RowN + 1:RowN + 9]
-                            Amps = abs(Amps - ClickAmp)
+                            Amps = abs(CT.amplitude[RowN + 1:RowN + 9] - ClickAmp)
                             DiffCPSs = abs(ClickCPS - CPSs)
-                            DiffCPSs = pd.DataFrame(DiffCPSs)
-                            MinVal = DiffCPSs.start_sample.min()
-                            ixCPS = DiffCPSs[DiffCPSs.start_sample == MinVal].index
-                            if Amps[ixCPS[0]] < 6:
-                                DiffCPSs[ixCPS[0]] = 1000  # high arbitrary number
-                                MinVal = DiffCPSs.start_sample.min()
-                                ixCPS = DiffCPSs[DiffCPSs.start_sample == MinVal].index
-                                RowN = RowN + ixCPS[0]
+                            ixCPS = DiffCPSs.idxmin()
+                            if Amps[ixCPS] < 6:
+                                DiffCPSs[ixCPS] = 1000  # high arbitrary number
+                                ixCPS = DiffCPSs.idxmin()
+                                RowN = RowN + ixCPS
                             else:
-                                RowN = RowN + ixCPS[0]
+                                RowN = RowN + ixCPS
 
                             RowsToKeep = np.append(RowsToKeep, RowN)
 
@@ -225,15 +211,15 @@ def extract_patterns(myCP, myFs, lat, long):
                         if len(RowsToKeep) > 0:
                             FinalCT = CT.iloc[RowsToKeep]
                             FinalCT.reset_index(inplace=True, drop=True)
-                            FinalCT = new_ici(FinalCT, myFs)
+                            FinalCT = new_ici(FinalCT)
                         else:
                             FinalCT = []
                 else:
                     FinalCT = CT.copy()
-                    FinalCT = new_ici(FinalCT, myFs)
+                    FinalCT = new_ici(FinalCT)
 
             if len(FinalCT) > 1:
-                FinalCT = new_ici(FinalCT, myFs)
+                FinalCT = new_ici(FinalCT)
                 myCTInfo = ct_info_maker(myCTInfo, FinalCT, lat, long)
                 # Put result into a final file
                 if j == 0:
@@ -247,19 +233,16 @@ def extract_patterns(myCP, myFs, lat, long):
     return Clicks, myCTInfo, myCP
 
 
-def new_ici(myTable, fs):
+def new_ici(myTable):
     """
         Calculates inter-click intervals (ICI) and repetition rates (clicks per second - CPS)
     :parameters:
-        myTable: pandas dataframe with at least the following column
-            start_sample: indicates the sample number where each clicks begins in the wav file
-        fs: sampling frequency
+        myTable: pandas dataframe with at least the datetime
 
     :return:
         myTable updated
     """
-    start_sample = myTable["start_sample"]
-    myTable = myTable.assign(ICI=start_sample.diff() / (fs / 1000))
+    myTable['ICI'] = myTable.datetime.diff().dt.microseconds / 1000
     myTable = myTable.assign(CPS=1000 / myTable.ICI)
     myTable.at[0, 'CPS'] = 0.0
     myTable.at[0, 'ICI'] = 0.0
@@ -285,14 +268,14 @@ def ct_info_maker(myCTInfo, myCTTemp, myLat, myLong):
     CTNum = myCTTemp.CT[0]
     # day/night
     today = myCTTemp.datetime.iloc[0]
-    day = int(today[8:10])
-    month = int(today[5:7])
-    year = int(today[0:4])
+    day = today.day
+    month = today.month
+    year = today.year
     sriseH, sriseM = sunrise.getSunriseTime(day, month, year, myLong, myLat)
     ssetH, ssetM = sunrise.getSunsetTime(day, month, year, myLong, myLat)
     # I don't know which format time is returned here, need to correct when I do
-    HH = today[11:13]
-    MM = today[14:16]
+    HH = today.hour
+    MM = today.minute
 
     if int(sriseH) < int(HH) < int(ssetH):
         DayNight = 'Day'
