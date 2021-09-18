@@ -1971,7 +1971,6 @@ class Ui_MainWindow(object):
                         CP = pd.read_csv(CPFileName, sep=',')
 
                 Clicks, thisCTInfo, CP = click_trains.extract_patterns(CP, latitude, longitude)
-                # TODO FREQUENCY IS HARDCODED!
                 if myFolders == MainFolder:
                     CTInfoFileName = os.path.join(MainFolder, 'CTInfo.csv')
                     ClicksFileName = os.path.join(MainFolder, 'Clicks.csv')

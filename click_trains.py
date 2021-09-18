@@ -92,29 +92,43 @@ def extract_patterns(myCP, lat, long):
         TimeGaps = myCP.loc[(myCP['ICI'] > Th) | (myCP['ICI'] < 0.0)].index.to_series()
         TimeGaps.reset_index(inplace=True, drop=True)
 
+    # Compute the number of clicks per "gap" chosen
     DiffTimeGaps = TimeGaps.diff()
+    DiffTimeGaps[0] = TimeGaps[0]  # (first one from 0)
+    DiffTimeGaps[len(DiffTimeGaps)] = len(myCP) - TimeGaps.iloc[-1]  # Add last CT from last time gap until the end
+
     # Find very long CT and reduce them to CT with fewer than 1000 clicks
     LongCTs = DiffTimeGaps[DiffTimeGaps > 1000.0].index
 
+    # Compute CT, which is a pandas index with all the indexes of TimeGaps where a CT starts.
+    # TimeGaps then refers to the index of myCP (dataframe with all clicks) where the CT starts
     if len(LongCTs) > 0:
         new_time_gaps = TimeGaps.copy()
         CTs, TimeGaps = ct_steps(new_time_gaps, LongCTs, DiffTimeGaps, TimeGaps, myCP)
     else:
         CTs = DiffTimeGaps[DiffTimeGaps > 9].index
+
     if len(CTs) > 0:
-        for j in tqdm(range(1, len(CTs) + 1), total=len(CTs)):  # j runs through all the CT c
-            if j == (len(CTs) + 1):
-                Start = TimeGaps[CTs[-1]]
+        # j runs through all the CT
+        # Then selects Start and Stop of click train (index of myCP where the CT starts and stops)
+        for j, gap_idx in tqdm(enumerate(CTs), total=len(CTs)):
+            if gap_idx == 0:
+                # First one goes from 0 to the first time gap
+                Start = 0
+                End = TimeGaps[gap_idx]
+            elif gap_idx == len(TimeGaps):
+                # Last one goes from last time gap until the last click of the dataframe
+                Start = TimeGaps.iloc[-1]
                 End = len(myCP)
             else:
-                i = j - 1
-                Start = TimeGaps[CTs[i] - 1]
-                End = TimeGaps[CTs[i]] - 1
+                Start = TimeGaps[CTs[j] - 1]
+                End = TimeGaps[CTs[j]]
+
+            # Create CT, a dataframe with all the clicks of the Click Train
             CT = myCP[Start:End]
             CT.reset_index(inplace=True, drop=True)
             CT = new_ici(CT)
-            CTNum = j + 1
-            CT = CT.assign(CT=CTNum)
+            CT = CT.assign(CT=j)
 
             # A large difference indicates echoes
             SortedCPS = CT.CPS.values.copy()
@@ -237,12 +251,12 @@ def new_ici(myTable):
     """
         Calculates inter-click intervals (ICI) and repetition rates (clicks per second - CPS)
     :parameters:
-        myTable: pandas dataframe with at least the datetime
+        myTable: pandas dataframe with at least the datetime (should be a datetime in pandas, not a string!)
 
     :return:
         myTable updated
     """
-    myTable['ICI'] = myTable.datetime.diff().dt.microseconds / 1000
+    myTable['ICI'] = myTable.datetime.diff().dt.total_seconds() * 1000
     myTable = myTable.assign(CPS=1000 / myTable.ICI)
     myTable.at[0, 'CPS'] = 0.0
     myTable.at[0, 'ICI'] = 0.0
