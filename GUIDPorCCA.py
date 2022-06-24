@@ -975,13 +975,14 @@ class Ui_MainWindow(object):
         """
         global CTTemp
         CTTemp = Cp[Cp.CT == NumCT]
-        if NumCT != 1:
-            CTTemp.reset_index(inplace=True, drop=True)
+        CTTemp.reset_index(inplace=True, drop=True)
+        # if NumCT != 1:
+        #    CTTemp.reset_index(inplace=True, drop=True)
         if len(CTTemp) > 9:
             CTTemp = click_trains.new_ici(CTTemp)
-            CTTemp.loc[:, 'SumMs'] = int(0)
+            CTTemp.loc[:, 'SumMs'] = 0
             for i in range(1, len(CTTemp)):
-                CTTemp.SumMs[i] = int(CTTemp.SumMs[i - 1]) + int(CTTemp.ICI[i])
+                CTTemp.SumMs[i] = CTTemp.SumMs[i - 1] + CTTemp.ICI[i]
             CTTemp.SumMs = CTTemp.SumMs / 1000
             CT1HQ = CTTemp[CTTemp['pyPorCC'] == 1]
             CT1LQ = CTTemp[CTTemp['pyPorCC'] == 2]

@@ -256,7 +256,9 @@ def new_ici(myTable):
     :return:
         myTable updated
     """
-    myTable['ICI'] = myTable.datetime.diff().dt.total_seconds() * 1000
+    fs = 576000
+    myTable['ICI'] = myTable.start_sample.diff()/(fs/1000)
+                    #  myTable..datetime.diff().dt.total_seconds() * 1000
     myTable = myTable.assign(CPS=1000 / myTable.ICI)
     myTable.at[0, 'CPS'] = 0.0
     myTable.at[0, 'ICI'] = 0.0
