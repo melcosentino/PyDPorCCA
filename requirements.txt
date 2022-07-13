@@ -24,8 +24,8 @@ pyarrow==2.0.0
 pycparser==2.20
 PyOpenGL==3.1.5
 pyparsing==2.4.7
-git+git://github.com/lifewatch/pyporcc
-git+git://github.com/lifewatch/pyhydrophone
+pyporcc==0.1
+pyhydrophone==0.1.2
 PyQt5==5.15.2
 PyQt5-sip==12.8.1
 PyQt5-stubs==5.14.2.2
