@@ -30,8 +30,9 @@ from pyporcc import porcc
 from scipy import signal
 import zipfile
 import pathlib
-
+import configparser # used to create a configuration file with information on the detector and classifier parameters
 import click_trains
+from datetime import datetime
 
 pd.options.mode.chained_assignment = None
 
@@ -1721,6 +1722,7 @@ class Ui_MainWindow(object):
         """
         self.MenuDetSetFig.close()
         MainFolder = self.FolderPathDet.text()
+        print(MainFolder)
         ModelSel = self.DataTypeDD.currentText()
         classifier = porcc.PorCC(load_type='manual', config_file='default')
         LQ = float(self.LQThresDet.text())
@@ -1750,6 +1752,38 @@ class Ui_MainWindow(object):
             MinSep = int(self.MinSepEd.text())
             MinFrq = float(self.MinFreqEd.text()) * 1000
             MaxFrq = float(self.MaxFreqEd.text()) * 1000
+
+            ## Create config file
+            now = datetime.utcnow()
+            current_time = now.strftime("%d/%m/%Y - %H:%M:%S")
+            config = configparser.ConfigParser()
+            # Add the structure to the file we will create
+            config.add_section('general_info')
+            config.set('general_info', 'date_utc', current_time)
+
+            config.add_section('hydrophone_info')
+            config.set('hydrophone_info', 'model', str(ModelSel))
+
+            config.add_section('detector_set')
+            config.set('detector_set', 'long_filt', str(LongFilt))
+            config.set('detector_set', 'long_filt2', str(LongFilt2))
+            config.set('detector_set', 'short_filt', str(ShortFilt))
+            config.set('detector_set', 'det_threshold', str(DetThres))
+            config.set('detector_set', 'pre_samples', str(PreSam))
+            config.set('detector_set', 'post_samples', str(PostSam))
+            config.set('detector_set', 'max_len_click', str(MaxLenClick))
+            config.set('detector_set', 'min_len_click', str(MinLenClick))
+            config.set('detector_set', 'min_separation', str(MinSep))
+            config.set('detector_set', 'min_frequency', str(MinFrq))
+            config.set('detector_set', 'max_frequency', str(MaxFrq))
+
+            config.add_section('classifier_set')
+            config.set('classifier_set', 'low_qual_thres', str(LQ))
+            config.set('classifier_set', 'high_qual_thres', str(HQ))
+
+            # Write the new structure to the new file
+            with open(os.path.join(MainFolder, 'config_file.ini'), 'w') as configfile:
+                config.write(configfile)
 
             pfilter = click_detector.Filter(filter_name='butter', filter_type='bandpass', order=4,
                                             frequencies=[MinFrq, MaxFrq])
