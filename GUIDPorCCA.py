@@ -1753,41 +1753,21 @@ class Ui_MainWindow(object):
             MinFrq = float(self.MinFreqEd.text()) * 1000
             MaxFrq = float(self.MaxFreqEd.text()) * 1000
 
-            ## Create config file
-            now = datetime.utcnow()
-            current_time = now.strftime("%d/%m/%Y - %H:%M:%S")
-            config = configparser.ConfigParser()
-            # Add the structure to the file we will create
-            config.add_section('general_info')
-            config.set('general_info', 'date_utc', current_time)
-
-            config.add_section('hydrophone_info')
-            config.set('hydrophone_info', 'model', str(ModelSel))
-
-            config.add_section('detector_set')
-            config.set('detector_set', 'long_filt', str(LongFilt))
-            config.set('detector_set', 'long_filt2', str(LongFilt2))
-            config.set('detector_set', 'short_filt', str(ShortFilt))
-            config.set('detector_set', 'det_threshold', str(DetThres))
-            config.set('detector_set', 'pre_samples', str(PreSam))
-            config.set('detector_set', 'post_samples', str(PostSam))
-            config.set('detector_set', 'max_len_click', str(MaxLenClick))
-            config.set('detector_set', 'min_len_click', str(MinLenClick))
-            config.set('detector_set', 'min_separation', str(MinSep))
-            config.set('detector_set', 'min_frequency', str(MinFrq))
-            config.set('detector_set', 'max_frequency', str(MaxFrq))
-
-            config.add_section('classifier_set')
-            config.set('classifier_set', 'low_qual_thres', str(LQ))
-            config.set('classifier_set', 'high_qual_thres', str(HQ))
-
-            # Write the new structure to the new file
-            with open(os.path.join(MainFolder, 'config_file.ini'), 'w') as configfile:
-                config.write(configfile)
-
             pfilter = click_detector.Filter(filter_name='butter', filter_type='bandpass', order=4,
                                             frequencies=[MinFrq, MaxFrq])
-            dfilter = click_detector.Filter(filter_name='butter', filter_type='high', order=4, frequencies=20000)
+            if self.PreFiltDD.text() == 'Butterworth':
+                name_filter = 'butter'
+            elif self.PreFiltDD.text() == 'Chebyshev I':
+                name_filter = 'cheby1'
+            elif self.PreFiltDD.text() == 'Chebyshev II':
+                name_filter = 'cheby2'
+            elif self.PreFiltDD.text() == 'Bessel':
+                name_filter = 'besel'
+
+            order_filter = float(self.PreFiltPole.text())
+            cut_off_freq = float(self.PreFiltFreq.text())
+
+            dfilter = click_detector.Filter(filter_name=name_filter, filter_type='high', order=order_filter, frequencies=cut_off_freq)
             detector = click_detector.ClickDetector(hydrophone=hydrop, long_filt=LongFilt, long_filt2=LongFilt2,
                                                     short_filt=ShortFilt, threshold=DetThres, min_separation=MinSep,
                                                     max_length=MaxLenClick, min_length=MinLenClick, pre_samples=PreSam,
@@ -1837,6 +1817,54 @@ class Ui_MainWindow(object):
         else:
             detector.detect_click_clips_folder(MainFolder, blocksize=blocksize, zip_mode=zip_mode)
 
+        ## Create config file
+        now = datetime.utcnow()
+        current_time = now.strftime("%d/%m/%Y - %H:%M:%S")
+        config = configparser.ConfigParser()
+        # Add the structure to the file we will create
+        config.add_section('general_info')
+        config.set('general_info', 'date_utc', current_time)
+        config.set('general_info', 'main_folder', MainFolder)
+        config.set('general_info', 'lim_num_clicks_per_file', MaxLenFile)
+
+        config.add_section('hydrophone_info')
+        config.set('hydrophone_info', 'hydrophone', str(ModelSel))
+        config.set('hydrophone_info', 'serial_num', str(serial_number))
+        config.set('hydrophone_info', 'num_channels', str(serial_number))
+        config.set('hydrophone_info', 'sensitivity_dB', str(serial_number))
+        config.set('hydrophone_info', 'gain', str(serial_number))
+        config.set('hydrophone_info', 'clip_level', str(serial_number))
+
+        config.add_section('detector_set')
+        config.set('detector_set', 'long_filt', str(LongFilt))
+        config.set('detector_set', 'long_filt2', str(LongFilt2))
+        config.set('detector_set', 'short_filt', str(ShortFilt))
+
+        config.add_section('trigger_filt_set')
+        config.set('trigger_filt_set', 'min_frequency', str(MinFrq))
+        config.set('trigger_filt_set', 'max_frequency', str(MaxFrq))
+        config.set('trigger_filt_set', 'det_threshold', str(DetThres))
+
+        config.add_section('pre_filt_set')
+        config.set('pre_filt_set', 'filter_name', str(name_filter))
+        config.set('pre_filt_set', 'filter_type', 'High-pass')
+        config.set('pre_filt_set', 'filter_order', str(order_filter))
+        config.set('pre_filt_set', 'cut_off_freq', str(cut_off_freq))
+
+        config.add_section('clicks_set')
+        config.set('clicks_set', 'pre_samples', str(PreSam))
+        config.set('clicks_set', 'post_samples', str(PostSam))
+        config.set('clicks_set', 'max_len_click', str(MaxLenClick))
+        config.set('clicks_set', 'min_len_click', str(MinLenClick))
+        config.set('clicks_set', 'min_separation', str(MinSep))
+
+        config.add_section('classifier_set')
+        config.set('classifier_set', 'low_qual_thres', str(LQ))
+        config.set('classifier_set', 'high_qual_thres', str(HQ))
+
+        # Write the new structure to the new file
+        with open(os.path.join(MainFolder, 'settings_file.ini'), 'w') as configfile:
+            config.write(configfile)
 
     def CancelDetector(self):
         self.MenuDetSetFig.close()

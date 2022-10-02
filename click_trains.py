@@ -283,32 +283,33 @@ def ct_info_maker(myCTInfo, myCTTemp, myLat, myLong):
     # Store in CTInfo
     CTNum = myCTTemp.CT[0]
     # day/night
-    today = myCTTemp.datetime.iloc[0]
-    day = today.day
-    month = today.month
-    year = today.year
-    sriseH, sriseM = sunrise.getSunriseTime(day, month, year, myLong, myLat)
-    ssetH, ssetM = sunrise.getSunsetTime(day, month, year, myLong, myLat)
-    # I don't know which format time is returned here, need to correct when I do
-    HH = today.hour
-    MM = today.minute
-
-    if int(sriseH) < int(HH) < int(ssetH):
-        DayNight = 'Day'
-    elif int(sriseH) == int(HH):
-        if int(MM) >= int(sriseM):
-            DayNight = 'Day'
-        else:
-            DayNight = 'Night'
-    elif int(ssetH) == int(HH):
-        if int(MM) >= int(ssetM):
-            DayNight = 'Night'
-        else:
-            DayNight = 'Day'
-    elif int(sriseH) > int(HH) > int(ssetH):
-        DayNight = 'Night'
-    else:
-        DayNight = 'Night'
+    # today = myCTTemp.datetime.iloc[0]
+    # day = today.day
+    # month = today.month
+    # year = today.year
+    # sriseH, sriseM = sunrise.getSunriseTime(day, month, year, myLong, myLat)
+    # ssetH, ssetM = sunrise.getSunsetTime(day, month, year, myLong, myLat)
+    # # I don't know which format time is returned here, need to correct when I do
+    # HH = today.hour
+    # MM = today.minute
+    #
+    # if int(sriseH) < int(HH) < int(ssetH):
+    #     DayNight = 'Day'
+    # elif int(sriseH) == int(HH):
+    #     if int(MM) >= int(sriseM):
+    #         DayNight = 'Day'
+    #     else:
+    #         DayNight = 'Night'
+    # elif int(ssetH) == int(HH):
+    #     if int(MM) >= int(ssetM):
+    #         DayNight = 'Night'
+    #     else:
+    #         DayNight = 'Day'
+    # elif int(sriseH) > int(HH) > int(ssetH):
+    #     DayNight = 'Night'
+    # else:
+    #     DayNight = 'Night'
+    DayNight = 'Night'
     # Type
     Type = ct_type(myCTTemp)
     if Type == 'Noise':
