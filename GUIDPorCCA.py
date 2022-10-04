@@ -1755,13 +1755,13 @@ class Ui_MainWindow(object):
 
             pfilter = click_detector.Filter(filter_name='butter', filter_type='bandpass', order=4,
                                             frequencies=[MinFrq, MaxFrq])
-            if self.PreFiltDD.text() == 'Butterworth':
+            if self.PreFiltDD.currentText() == 'Butterworth':
                 name_filter = 'butter'
-            elif self.PreFiltDD.text() == 'Chebyshev I':
+            elif self.PreFiltDD.currentText() == 'Chebyshev I':
                 name_filter = 'cheby1'
-            elif self.PreFiltDD.text() == 'Chebyshev II':
+            elif self.PreFiltDD.currentText() == 'Chebyshev II':
                 name_filter = 'cheby2'
-            elif self.PreFiltDD.text() == 'Bessel':
+            elif self.PreFiltDD.currentText() == 'Bessel':
                 name_filter = 'besel'
 
             order_filter = float(self.PreFiltPole.text())
