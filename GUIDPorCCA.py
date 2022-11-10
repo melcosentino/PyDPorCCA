@@ -580,9 +580,6 @@ class Ui_MainWindow(object):
         self.font2.setBold(False)
         self.font2.setWeight(50)
         # Click train in 3D
-        self.IndClicksAnd3D.setFont(self.font2)
-        self.IndClicksAnd3D.setObjectName("IndClicksAnd3D")
-        self.IndClicksAnd3D.clicked.connect(self.OpenIndClicksAnd3D)
         self.SpectrogramButton.setGeometry(QtCore.QRect(30, 140, 260, 62))
         # Spectrogram area
         self.SpectrogramButton.setFont(self.font2)
@@ -1042,9 +1039,7 @@ class Ui_MainWindow(object):
                 self.FreqAxesCT.plot(CTTemp.SumMs, CTTemp.Bearing, pen=None, symbol='o', color='b')
                 self.FreqAxesCT.setXRange(0, max(CTTemp.SumMs) + 0.1)
                 self.FreqAxesCT.setYRange(0, 180)
-            #     FreqOrBearing = DirectionofarrivalButton.Value
-            #     BearExist = strcmpi('Bearing', CP.Properties.VariableNames)
-            #     if FreqOrBearing == 1 and len(BearExist) > 0:
+
             else:
                 FreqLQ = CT1LQ.CF / 1000
                 FreqHQ = CT1HQ.CF / 1000
@@ -1133,79 +1128,6 @@ class Ui_MainWindow(object):
         CTInfo.Notes[CTInfo.CTNum == CTNum] = NotesUpdate
         self.NotesFig.close()
 
-    def OpenIndClicksAnd3D(self):
-        pass
-        # global CTTemp
-        # x1 = []
-        # y1 = []
-        # z1 = []
-        # self.Fig3D.setGeometry(50, 50, 1200, 800)
-        # self.Fig3D.setWindowTitle('Click train in 3D')
-        # self.Pan3D.setFrameShape(QtWidgets.QFrame.StyledPanel)
-        # self.Pan3D.setGeometry(10, 10, 1180, 780)
-        # self.Plot3D.setGeometry(600, 300, 570, 460)
-        #
-        # ## WATERFALL PLOT
-        # FFT = 512
-        # CTTemp['iciSum'] = 0
-        # for i in range(1, len(CTTemp)):
-        #     CTTemp.iciSum[i] = CTTemp.ICI[i] + CTTemp.iciSum[i - 1]
-        # WavFileToOpen = CTTemp.filename[0]
-        #
-        # # CREATE empty x, y, and z for the waterfall plot
-        # z1 = np.zeros((257, len(CTTemp)), dtype=float)  # power of each click in each row
-        #
-        # # FILL the variables
-        # # X = frequency
-        # click1, fs = soundfile.read(WavFileToOpen, start=1, stop=150)
-        # freqs, psd = signal.welch(click1, fs=fs, window='hann', nfft=512)
-        # x1 = freqs / 1000
-        # # x1.to_numpy()
-        # # Y = time( in secs)
-        # y1 = CTTemp.iciSum.to_numpy()
-        # y1 = y1 / 1000
-        # # y1 = y1.T
-        #
-        # # Normalised Amplitude
-        # for i in range(0, len(CTTemp)):
-        #     Start = CTTemp.start_sample[i]
-        #     End = Start + CTTemp.duration_samples[i]
-        #     click, Fs = soundfile.read(WavFileToOpen, start=int(Start), stop=int(End))
-        #     freqs, psd = signal.welch(click, fs=Fs, window='hann', nfft=512)
-        #     z1[:, i] = psd
-        # a = z1.max()
-        # z1 = z1 / a
-        # # ax = plt.axes(projection='3d')
-        #
-        # # Data for a three-dimensional line
-        # # ax.contour3D(x1, y1, z1)
-        # # ax.set_xlabel('Frequency (kHz)')
-        # # ax.set_ylabel('Time (ms)')
-        # # ax.set_zlabel('Amplitude')
-        #
-        # # Data for three-dimensional scattered points
-        # # zdata = 15 * np.random.random(100)
-        # # xdata = np.sin(zdata) + 0.1 * np.random.randn(100)
-        # # ydata = np.cos(zdata) + 0.1 * np.random.randn(100)
-        # # ax.scatter3D(xdata, ydata, zdata, c=zdata, cmap='Greens')
-        #
-        # # self.Plot3D.add_subplot(111, projection='3d')
-        #
-        # # n = 0
-        # print(len(y1), len(x1), len(z1))
-        # p2 = gl.GLSurfacePlotItem(y=y1, x=x1, z=z1, shader='shaded', color=(0.5, 0.5, 1, 1))
-        # p2.translate(-10, -30, 10)
-        # p2.scale(1.0, 1.0, 0.5)
-        # self.Plot3D.addItem(p2)
-        #
-        # # self.Plot3D.contour3D(x1, y1, z1)
-        # # self.Plot3D.set_xlabel('Frequency (kHz)')
-        # # self.Plot3D.set_ylabel('Time (ms)')
-        # # self.Plot3D.set_zlabel('Amplitude')
-        # # plt.scatter(self.Plot3D, x1, y1, z1)
-        # self.Fig3D.show()
-        # self.Plot3D.show()
-
     def CreateSpectrogram(self):
         """
             Creates a pop up figure and plots the waveform and spectrogram of the click train
@@ -1264,17 +1186,9 @@ class Ui_MainWindow(object):
         Pxx, freqs, bins, im = ax2.specgram(self.FiltSig, NFFT=NFFT, Fs=Fs, noverlap=Overlap)  # , cmap='jet')
         ax1.grid(False)
         ax2.grid(False)
-        # ax1.ylabel('Amplitude')
-        # ax1.title('Waveform')
-        # ax2.ylabel('Frequency (Hz)')
-        # ax2.xlabel('Time (s)')
-        # ax2.title('Spectrogram')
+
         plt.show()
 
-        # freq, t, Pxx = signal.spectrogram(self.FiltSig, fs=Fs, nfft=NFFT, window=window, scaling='density',
-        # noverlap=Overlap) Pxx = 10*np.log10(Pxx**2) self.SpectAxes.setImage(Pxx.T, autoRange=False, scale=(100,
-        # 600)) ColorMap = pg.ColorMap(pos=[0, 0.25, 0.5, 0.75, 1], color=[(0, 0, 255), (200, 255, 255), (100, 255,
-        # 150), (255, 255, 0), (255, 0, 100)]) self.SpectAxes.setColorMap(ColorMap) self.SpectWindow.show()
 
     def UpdateSpect(self):
         """
@@ -1595,7 +1509,7 @@ class Ui_MainWindow(object):
         self.DataTypeDD.addItem("ST500HF")
         self.DataTypeDD.addItem('ST Click Detector')
         self.DataTypeDD.addItem("PAMGuard")
-        #   self.FileDD.activated[str].connect(self.style_choice)
+        self.DataTypeDD.addItem("Reson")
         self.DataTypeLbl.setGeometry(10, 40, 200, 30)
         self.DataTypeLbl.setText('Recorder/Hydrophone')
 
@@ -1721,51 +1635,56 @@ class Ui_MainWindow(object):
                     noise (N).
         """
         self.MenuDetSetFig.close()
+
+        # Parameters needed
+        zip_mode = self.ZipMode.isChecked()
         MainFolder = self.FolderPathDet.text()
-        print(MainFolder)
         ModelSel = self.DataTypeDD.currentText()
         classifier = porcc.PorCC(load_type='manual', config_file='default')
         LQ = float(self.LQThresDet.text())
         HQ = float(self.HQThresDet.text())
+        MaxLenFile = int(self.LengthFileEdit.text())
+        LongFilt = float(self.LongFiltEdit.text())
+        LongFilt2 = float(self.LongFiltEdit2.text())
+        ShortFilt = float(self.ShortFiltEdit.text())
+        DetThres = float(self.DetThreshold.text())
+        PreSam = int(self.PreSampEd.text())
+        PostSam = int(self.PostSampEd.text())
+        MaxLenClick = int(self.MaxLengthEd.text())
+        MinLenClick = int(self.MinLengthEd.text())
+        MinSep = int(self.MinSepEd.text())
+        MinFrq = float(self.MinFreqEd.text()) * 1000
+        MaxFrq = float(self.MaxFreqEd.text()) * 1000
+        Sens = int(self.SensEditDet.text())
+        order_filter = float(self.PreFiltPole.text())
+        cut_off_freq = float(self.PreFiltFreq.text())
+        serial_number = int(self.SerialNoEdit.text())
+        gain = int(self.GainEditDet.text())
+
+        pfilter = click_detector.Filter(filter_name='butter', filter_type='bandpass', order=4,
+                                        frequencies=[MinFrq, MaxFrq])
+        if self.PreFiltDD.currentText() == 'Butterworth':
+            name_filter = 'butter'
+        elif self.PreFiltDD.currentText() == 'Chebyshev I':
+            name_filter = 'cheby1'
+        elif self.PreFiltDD.currentText() == 'Chebyshev II':
+            name_filter = 'cheby2'
+        elif self.PreFiltDD.currentText() == 'Bessel':
+            name_filter = 'besel'
+
+
         # update the thresholds
         classifier.th1 = HQ
         classifier.th2 = LQ
+
         if ModelSel == 'ST300HF' or ModelSel == 'ST500HF':
             name = 'SoundTrap'
-            serial_number = int(self.SerialNoEdit.text())  # 0
-            if serial_number == 0:
-                Sens = int(self.SensEditDet.text())
+            serial_number = int(self.SerialNoEdit.text())
+            if serial_number == 0:  # old version or the calibration is not correct online
                 hydrop = pyhy.soundtrap.SoundTrap(name=name, model=ModelSel, sensitivity=Sens,
                                                   serial_number=serial_number)
-            else:
+            else: # if a serial number is provided, the calibration information is retrieved from the web
                 hydrop = pyhy.soundtrap.SoundTrap(name=name, model=ModelSel, serial_number=serial_number)
-
-            MaxLenFile = int(self.LengthFileEdit.text())
-            LongFilt = float(self.LongFiltEdit.text())
-            LongFilt2 = float(self.LongFiltEdit2.text())
-            ShortFilt = float(self.ShortFiltEdit.text())
-            DetThres = float(self.DetThreshold.text())
-            PreSam = int(self.PreSampEd.text())
-            PostSam = int(self.PostSampEd.text())
-            MaxLenClick = int(self.MaxLengthEd.text())
-            MinLenClick = int(self.MinLengthEd.text())
-            MinSep = int(self.MinSepEd.text())
-            MinFrq = float(self.MinFreqEd.text()) * 1000
-            MaxFrq = float(self.MaxFreqEd.text()) * 1000
-
-            pfilter = click_detector.Filter(filter_name='butter', filter_type='bandpass', order=4,
-                                            frequencies=[MinFrq, MaxFrq])
-            if self.PreFiltDD.currentText() == 'Butterworth':
-                name_filter = 'butter'
-            elif self.PreFiltDD.currentText() == 'Chebyshev I':
-                name_filter = 'cheby1'
-            elif self.PreFiltDD.currentText() == 'Chebyshev II':
-                name_filter = 'cheby2'
-            elif self.PreFiltDD.currentText() == 'Bessel':
-                name_filter = 'besel'
-
-            order_filter = float(self.PreFiltPole.text())
-            cut_off_freq = float(self.PreFiltFreq.text())
 
             dfilter = click_detector.Filter(filter_name=name_filter, filter_type='high', order=order_filter, frequencies=cut_off_freq)
             detector = click_detector.ClickDetector(hydrophone=hydrop, long_filt=LongFilt, long_filt2=LongFilt2,
@@ -1775,19 +1694,17 @@ class Ui_MainWindow(object):
                                                     save_max=MaxLenFile, save_folder=MainFolder, convert=True,
                                                     click_model_path=None, classifier=classifier, save_noise=False)
             blocksize = 3456000
+
         elif ModelSel == 'ST Click Detector':
             name = 'SoundTrap'
-            serial_number = int(self.SerialNoEdit.text())
             if serial_number == 0:
-                Sens = int(self.SensEditDet.text())
+
                 hydrop = pyhy.soundtrap.SoundTrapHF(name=name, model=ModelSel, sensitivity=Sens,
                                                     serial_number=serial_number)
             else:
                 hydrop = pyhy.soundtrap.SoundTrapHF(name=name, model=ModelSel, serial_number=serial_number)
-            MinFrq = float(self.MinFreqEd.text()) * 1000
-            MaxFrq = float(self.MaxFreqEd.text()) * 1000
 
-            pfilter = click_detector.Filter(filter_name='butter', filter_type='bandpass', order=4,
+            pfilter = click_detector.Filter(filter_name=name_filter, filter_type='bandpass', order=order_filter,
                                             frequencies=[MinFrq, MaxFrq])
             detector = click_detector.ClickDetectorSoundTrapHF(hydrophone=hydrop, prefilter=pfilter,
                                                                save_folder=MainFolder, convert=True,
@@ -1795,27 +1712,21 @@ class Ui_MainWindow(object):
                                                                save_noise=False)
             blocksize = None
 
-        else:
+        elif ModelSel == 'Reson':
+            name = 'SoundTrap'
+            hydrop = pyhy.soundtrap.SoundTrapHF(name=name, model=ModelSel, sensitivity=Sens,
+                                                serial_number=serial_number)
+            dfilter = click_detector.Filter(filter_name=name_filter, filter_type='high', order=order_filter,
+                                            frequencies=cut_off_freq)
+            pfilter = click_detector.Filter(filter_name=name_filter, filter_type='bandpass', order=order_filter,
+                                            frequencies=[MinFrq, MaxFrq])
+            detector = click_detector.ClickDetector(hydrophone=hydrop, long_filt=LongFilt, long_filt2=LongFilt2,
+                                                    short_filt=ShortFilt, threshold=DetThres, min_separation=MinSep,
+                                                    max_length=MaxLenClick, min_length=MinLenClick, pre_samples=PreSam,
+                                                    post_samples=PostSam, prefilter=pfilter, dfilter=dfilter,
+                                                    save_max=MaxLenFile, save_folder=MainFolder, convert=True,
+                                                    click_model_path=None, classifier=classifier, save_noise=False)
             blocksize = 3456000
-            detector = None
-
-        # for loop to go into subfolders
-        zip_mode = self.ZipMode.isChecked()
-        if self.CheckAllFolders.isChecked():
-            FilesAndFolders = os.listdir(MainFolder)
-            if zip_mode:
-                Folders = [s for s in FilesAndFolders if 'zip' in s]
-                detector.save_folder = MainFolder
-            else:
-                Folders = [s for s in FilesAndFolders if os.path.isdir(os.path.join(MainFolder, s))]
-            for myFolder in Folders:
-                ThisFolderSave = os.path.join(MainFolder, myFolder)
-                print('Detecting clicks in', ThisFolderSave)
-                if not zip_mode:
-                    detector.save_folder = ThisFolderSave
-                detector.detect_click_clips_folder(ThisFolderSave, blocksize=blocksize, zip_mode=zip_mode)
-        else:
-            detector.detect_click_clips_folder(MainFolder, blocksize=blocksize, zip_mode=zip_mode)
 
         ## Create config file
         now = datetime.utcnow()
@@ -1825,15 +1736,16 @@ class Ui_MainWindow(object):
         config.add_section('general_info')
         config.set('general_info', 'date_utc', current_time)
         config.set('general_info', 'main_folder', MainFolder)
-        config.set('general_info', 'lim_num_clicks_per_file', MaxLenFile)
+        config.set('general_info', 'lim_num_clicks_per_file', str(MaxLenFile))
 
         config.add_section('hydrophone_info')
         config.set('hydrophone_info', 'hydrophone', str(ModelSel))
-        config.set('hydrophone_info', 'serial_num', str(serial_number))
-        config.set('hydrophone_info', 'num_channels', str(serial_number))
-        config.set('hydrophone_info', 'sensitivity_dB', str(serial_number))
-        config.set('hydrophone_info', 'gain', str(serial_number))
-        config.set('hydrophone_info', 'clip_level', str(serial_number))
+        if serial_number != 0:
+            config.set('hydrophone_info', 'serial_num', str(serial_number))
+        # config.set('hydrophone_info', 'num_channels', str(serial_number))
+        config.set('hydrophone_info', 'sensitivity_dB', str(Sens))
+        config.set('hydrophone_info', 'gain', str(gain))
+        # config.set('hydrophone_info', 'clip_level', str(serial_number))
 
         config.add_section('detector_set')
         config.set('detector_set', 'long_filt', str(LongFilt))
@@ -1865,6 +1777,27 @@ class Ui_MainWindow(object):
         # Write the new structure to the new file
         with open(os.path.join(MainFolder, 'settings_file.ini'), 'w') as configfile:
             config.write(configfile)
+
+
+        # for loop to go into subfolders
+        if self.CheckAllFolders.isChecked():
+            FilesAndFolders = os.listdir(MainFolder)
+            if zip_mode:
+                Folders = [s for s in FilesAndFolders if 'zip' in s]
+                detector.save_folder = MainFolder
+            else:
+                Folders = [s for s in FilesAndFolders if os.path.isdir(os.path.join(MainFolder, s))]
+
+            for myFolder in Folders:
+                ThisFolderSave = os.path.join(MainFolder, myFolder)
+                print('Detecting clicks in', ThisFolderSave)
+                if not zip_mode:
+                    detector.save_folder = ThisFolderSave
+                detector.detect_click_clips_folder(ThisFolderSave, blocksize=blocksize, zip_mode=zip_mode)
+        else:
+            detector.detect_click_clips_folder(MainFolder, blocksize=blocksize, zip_mode=zip_mode)
+
+
 
     def CancelDetector(self):
         self.MenuDetSetFig.close()
